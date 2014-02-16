@@ -1,0 +1,6 @@
+insert electronics computer 300.00 1 5 F TX
+insert electronics mouse 300.00 1 5 F ZY
+insert electronics keyboard 300.00 1 5 NF TX
+insert electronics keyboard 300.00 1 5 NF AZ
+
+print

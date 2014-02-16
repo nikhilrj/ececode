@@ -1,0 +1,115 @@
+Base Price:		0.00
+Total Shipping Cost:	0.00
+Total Tax:		0.00
+Total Price:		0.00
+
+Your cart contains 0 of the item shirt
+Your cart contains 1 of the item shirt
+Your cart contains 0 of the item shirt
+Encountered IOException : java.io.IOException: Invalid line 
+	for line: insert    clothing    pants 12 2 0.5
+Encountered IOException : java.io.IOException: Invalid command 
+	for line:     search pants   
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: For input string: "20.50"
+	for line: insert clothing c c 20.50 1 1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: For input string: "2.1"
+	for line: insert clothing p 2 2.1 1.2
+Encountered IOException : java.io.IOException: Invalid parameters for Delete 
+	for line: delete s 3
+Encountered IOException : java.io.IOException: Invalid parameters for Search 
+	for line: search s 3
+Encountered IOException : java.io.IOException: Invalid parameters for Search 
+	for line: search        s . . 3'
+Encountered IOException : java.io.IOException: Invalid command 
+	for line: 'search s
+Encountered IOException : java.io.IOException: Invalid parameters for Delete 
+	for line: delete ' s
+Item:	c.c
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+Item:	clothing
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+Item:	s
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+
+Base Price:		61.50
+Total Shipping Cost:	60.00
+Total Tax:		6.15
+Total Price:		127.65
+
+Item:	c.c
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+Item:	clothing
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+Item:	s
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+
+Base Price:		61.50
+Total Shipping Cost:	60.00
+Total Tax:		6.15
+Total Price:		127.65
+
+Encountered IOException : java.io.IOException: Invalid line 
+	for line: insert                 
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: For input string: "20.50"
+	for line: insert clothing   20.50 1 1
+Encountered IOException : java.io.IOException: Invalid parameters for Search 
+	for line: search  
+Encountered IOException : java.io.IOException: Invalid parameters for Update 
+	for line: update      s
+Item:	c.c
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+Item:	clothing
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+Item:	s
+	Weight:	1.0	Quantity:	1	Price:	$20.5
+			Shipping:	$20.0	Tax:	$2.0500000000000003
+					Total Cost:	$42.55
+Item:	shirt
+	Weight:	1.0	Quantity:	5	Price:	$20.5
+			Shipping:	$100.0	Tax:	$10.25
+					Total Cost:	$130.75
+
+Base Price:		82.00
+Total Shipping Cost:	160.00
+Total Tax:		16.40
+Total Price:		258.40
+
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: For input string: "10.2"
+	for line: update shirt 10.2
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Quantity must be positive.
+	for line: update shirt -1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Price must be positive.
+	for line: insert clothing c -20.50 1 1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Quantity must be positive.
+	for line: insert clothing c1 20.50 -1 1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Weight must be positive.
+	for line: insert clothing c2 20.50 1 -1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Weight must be positive.
+	for line: insert clothing c3 20.50 1 -1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Weight must be positive.
+	for line: insert clothing c 20.50 1 0
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Quantity must be positive.
+	for line: insert clothing c 20.50 0 1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: Price must be positive.
+	for line: insert clothing c 0 1 1
+Invalid input for weight, price, or quantity : java.lang.NumberFormatException: For input string: "1.0"
+	for line: insert clothing c 20.50 1.0 1
+Encountered IOException : java.io.IOException: Incorrect parameters for Clothing 
+	for line: insert clothing c 20.50 11 1 1
+Your cart contains 2 of the item shirt
