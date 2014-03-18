@@ -66,13 +66,18 @@ class Server implements Runnable {
 	private synchronized boolean requestCS() throws Exception {
 		sendToServers("SERVER req " + SERVER_ID + " " + lc.getValue());
 		myReq = new Request(lc.getValue(), SERVER_ID);
-		while(myReq == null || acksReceived < SERVERS_LIVE || !pq.peek().equals(myReq)){} //blocks
+		pq.add(myReq);
+		while(myReq == null || acksReceived < SERVERS_LIVE-1 || !pq.peek().equals(myReq)){} //blocks
 		
+		System.out.println("made it past CS!");
 		return true;
 	}
 	
-	private void releaseCS() {
-		
+	private void releaseCS(String cat) throws Exception {
+		System.out.println("releasing CS!");
+		acksReceived = 0;
+		pq.remove(myReq);
+		sendToServers("SERVER rel " + SERVER_ID + " " + lc.sendAction() + cat);//TODO how to make this work??
 	}
     
     /**
@@ -80,6 +85,7 @@ class Server implements Runnable {
      * @param msg
      */
 	public void sendToServers(String msg) throws Exception {
+		System.err.println("Sending " + msg + " to all alive servers");
         serverNetwork = new Socket[ports.length];
         for(int i = 1; i < ports.length; i++){
         	if(i!=SERVER_ID){
@@ -99,6 +105,7 @@ class Server implements Runnable {
 	 * @param msg
 	 */
 	public void sendToServer(int id, String msg){
+		System.err.println("Sending " + msg + " to server " + id);
 		try {
 			Socket con = new Socket(InetAddress.getByName(addresses[id]), ports[id]);
 			PrintWriter outToServer = new PrintWriter(new OutputStreamWriter(con.getOutputStream()));
@@ -122,16 +129,24 @@ class Server implements Runnable {
 			int serv = Integer.parseInt(commands[2]);
 			Request req = new Request(lc.getValue(), serv);
 			pq.add(req);
-			sendToServer(serv, "ack"); //TODO see if this is bad or not
+			sendToServer(serv, "SERVER ack " + lc.sendAction()); //TODO see if this is bad or not
 		}
 		else if(commands[1].equals("ack")){
 			acksReceived++;
 		}
 		else if(commands[1].equals("rel")){
+			if(commands[4].equals("1")){
+				books[Integer.parseInt(commands[5])] = Integer.parseInt(commands[6]);
+			}
+			else if(commands[4].equals("2")){
+				books[Integer.parseInt(commands[5])] = 0;
+			}
+			
 			Iterator it = pq.iterator();
 			while(it.hasNext()){
 				Request rq = (Request) it.next();
-				if(rq.SERVER_NUM == Integer.parseInt(commands[2]))
+				if(rq.SERVER_NUM == Integer.parseInt(commands[2]) && rq.lc == Integer.parseInt(commands[3]))
+					System.out.println("removed server " + rq.SERVER_NUM + "'s request from queue");
 					pq.remove(rq);
 			}
 		}
@@ -152,13 +167,14 @@ class Server implements Runnable {
 			while(!requestCS())	{}
 			books[booknum] = client;
 			output = "c" + client + " " + "b" + booknum;
-			releaseCS();
+			releaseCS(" 1 " + booknum + " " + client);
 		} 
 		else if (commands[3].equals("return") && books[booknum] == client) {
 			while(!requestCS()) {}
-			books[Integer.parseInt(commands[1])] = 0;
+			//books[Integer.parseInt(commands[1])] = 0; //TODO i changed this
+			books[booknum] = 0;
 			output = "free c" + client + " " + "b" + booknum;
-			releaseCS();
+			releaseCS(" 2 " + booknum);
 		} else {
 			output = "fail c" + client + " " + "b" + booknum;
 		}
@@ -177,7 +193,6 @@ class Server implements Runnable {
 			
 			input = inp.nextLine();
 			System.err.println("Received: " + input);
-			System.err.println("Status " + Arrays.toString(books));
 
 			if(input.contains("SERVER")){
 				serverHandler(input);
@@ -192,6 +207,8 @@ class Server implements Runnable {
 			p.flush();
 
 		} catch (Exception e) {}
+
+		System.err.println("Status " + Arrays.toString(books));
 	}
 }
 
@@ -203,22 +220,25 @@ class LamportClock {
     public int getValue() {
         return c;
     }
-    public void tick() {
+    public int tick() {
         c = c + 1;
+        return c;
     }
-    public void sendAction() {
+    public int sendAction() {
         c = c + 1;
+        return c;
     }
-    public void receiveAction(int sentValue) {
+    public int receiveAction(int sentValue) {
         if(c > sentValue)
         	c = c + 1;
         else
         	c = sentValue +1;
+        return c;
     }
 }
 
 class Request implements Comparable<Request> {
-	private int lc;
+	int lc;
 	int SERVER_NUM;
 	
 	Request(int lc, int sn){
