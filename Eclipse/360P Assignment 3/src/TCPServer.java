@@ -2,67 +2,70 @@ import java.net.*;
 import java.io.*;
 import java.util.*;
 
-import javax.rmi.CORBA.Util;
-
 public class TCPServer {
-	NameTable table;
+	public static void main(String args[]) throws Exception {
+		String input;
+		String output;
 
-	public TCPServer() {
-		table = new NameTable();
-	}
+		Scanner in = new Scanner(new File(args[0]));
+		int n = in.nextInt();
 
-	public static void main(String[] args) {
-		TCPServer ns = new TCPServer();
-		System.out.println("NameServer started:");
-		try {
-			ServerSocket listener = new ServerSocket(Symbols.ServerPort);
-			Socket s;
-			while ((s = listener.accept()) != null) {
-				Thread t = new ServerThread(ns.table, s);
-				t.start();
+		int[] books = new int[in.nextInt() + 1];
+
+		in.nextLine();
+		String addr = in.nextLine();
+		int port = Integer.parseInt(addr.substring(addr.indexOf(':') + 1));
+		int len = 1024;
+		in.close();
+
+		ServerSocket sock = new ServerSocket(port, len,
+				InetAddress.getByName("localhost"));
+		System.out.println("Server started at " + sock.getLocalPort());
+
+		while (true) {
+			Socket server = sock.accept();
+			// BufferedReader clientIn = new BufferedReader(new
+			// InputStreamReader(server.getInputStream()));
+			// DataOutputStream toClient = new
+			// DataOutputStream(server.getOutputStream());
+			Scanner inp = new Scanner(server.getInputStream());
+			int t = 1;
+			PrintWriter p = new PrintWriter(server.getOutputStream());
+			// System.out.println("TO STRING INPUT: " +
+			// server.getInputStream().toString() + " " + t++);
+			// System.out.println();
+			try {
+				input = inp.nextLine(); // What the hell is this error?
+				System.err.println("Received: " + input);
+				System.err.println("Status " + Arrays.toString(books) + "\n");
+
+				output = "";
+				String[] commands = input.split(" ");
+				int client = Integer.parseInt(commands[0]);
+				int booknum = Integer.parseInt(commands[1]);
+				if (booknum > 0 && booknum < books.length
+						&& commands[2].equals("reserve") && books[booknum] <= 0) {
+					books[booknum] = client;
+					output = "c" + client + " " + "b" + booknum;
+				} else if (commands[2].equals("return")
+						&& books[booknum] == client) {
+					books[Integer.parseInt(commands[1])] = 0;
+					output = "free c" + client + " " + "b" + booknum;
+				} else {
+					output = "fail c" + client + " " + "b" + booknum;
+				}
+
+				System.err.println("SENDING MESSAGE: " + output
+						+ " TO ADDRESS: " + sock.getInetAddress().toString()
+						+ " PORT: " + sock.getLocalPort());
+				// toClient.writeBytes(output);
+				p.println(output);
+				p.flush();
+				// System.err.println("MESSAGE SENT");
+			} catch (Exception e) {
 			}
-		} catch (IOException e) {
-			System.err.println("Server aborted:" + e);
-		}
-	}
-}
 
-class NameTable {
-    class NameEntry {
-        public String procName;
-        public InetSocketAddress addr;
-        public NameEntry(String pName, String host, int port){
-           procName = pName;
-           addr = new InetSocketAddress(host, port);
-        }
-      }
-    ArrayList<NameEntry> table = new ArrayList<NameEntry>();
-    public synchronized InetSocketAddress search(String s) {
-        for (NameEntry entry: table)
-            if (s.equals(entry.procName)) return entry.addr;
-        return null;
-    }
-    // returns 0 if old value replaced, otherwise 1
-    public synchronized int insert(String s, String hostName, int portNumber) {
-        int retValue = 1;
-        for (NameEntry entry: table)
-            if (s.equals(entry.procName)) {
-                table.remove(entry);
-                retValue = 0;
-            }
-        table.add(new NameEntry(s,hostName, portNumber));
-        notifyAll();
-        return retValue;
-    }
-    public synchronized InetSocketAddress blockingFind(String s) {
-         InetSocketAddress addr = search(s);
-         while (addr == null) {
-                Util.myWait(this);
-                addr = search(s);
-         }
-         return addr;
-    }
-    public synchronized void clear() {
-         table.clear();
-    }
+		}
+
+	}
 }
