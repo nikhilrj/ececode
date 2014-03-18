@@ -22,22 +22,25 @@ public class TCPServer {
 			String addr = in.nextLine();
 			addresses[i] = addr.substring(0,addr.indexOf(':'));
 			ports[i] = Integer.parseInt(addr.substring(addr.indexOf(':') + 1));
-			//servers[i] = new Socket("localhost", );
 		}
 
 		int len = 1024;
 		in.close();
-
+		
 		ServerSocket sock = new ServerSocket(ports[SERVER_ID], len,	InetAddress.getByName("localhost"));
-		System.out.println("Server " + SERVER_ID + " started at " + sock.getLocalPort());
-		Server server = new Server(sock, ports, addresses, books);
+
+		while(true){
+			System.out.println("Server " + SERVER_ID + " started at " + sock.getLocalPort());
+			Server server = new Server(sock, ports, addresses, books);
+			new Thread(server).start();
+		}
 	}
 }
 
-class Server extends Thread{
+class Server implements Runnable {
 	
 	ServerSocket sock;
-    Socket connectionSocket;
+    Socket server;
     Socket[] serverNetwork;
     int[] ports;
     String[] addresses;
@@ -50,7 +53,8 @@ class Server extends Thread{
         this.addresses = addresses;
         this.sock = sock;
         this.books = books;
-        this.start();
+        //this.start();
+		server = sock.accept();
     }
     
 	public void sendToServers(String msg) throws Exception {
@@ -97,37 +101,33 @@ class Server extends Thread{
 	}
 
 	public void run() {
+		String input;
+		//String output;
+
+		
 		try {
-			connectionSocket = sock.accept();
+			//Socket server = sock.accept();
+			Scanner inp = new Scanner(server.getInputStream());
+			int t = 1;
+			PrintWriter p = new PrintWriter(server.getOutputStream());
 			
-			// create input stream attached to socket
-			BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
-			
-			// create output stream attached to socket
-			PrintWriter outToClient = new PrintWriter(new OutputStreamWriter(connectionSocket.getOutputStream()));
-			
-			// read in line from the socket
-			String input;
-			//while ((input = inFromClient.readLine()) != null) {
-			input = inFromClient.readLine();
-				System.out.println("Client sent: " + input);
-				// process
+			input = inp.nextLine();
+			System.err.println("Received: " + input);
+			System.err.println("Status " + Arrays.toString(books) + "\n");
 
-
-				System.err.println("Received: " + input);
-				System.err.println("Status " + Arrays.toString(books) + "\n");
-
-
-				
-				if(input.contains("SERVER")){
+			if(input.contains("SERVER")){
 				 
-				}
-				else { // MUST BE A CLIENT MESSAGE
-					outToClient.print(clientOutput(input));
-				}
-					
-				outToClient.flush();
-			//}
+			}
+			else { // MUST BE A CLIENT MESSAGE
+				p.println(clientOutput(input));
+			}
+
+
+			System.err.println("SENDING MESSAGE: " + clientOutput(input) + " TO ADDRESS: " + sock.getInetAddress().toString() + " PORT: " + sock.getLocalPort());
+			
+			//p.println(output);
+			p.flush();
+
 		} catch (Exception e) {}
 	}
 }

@@ -45,6 +45,8 @@ class TCPClient {
 					System.out.println(modifiedSentence);
 					System.err.println("T: " + t++);
 				}
+				else
+					break;
 			} catch (Exception e) {
 			}
 
