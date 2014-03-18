@@ -18,24 +18,17 @@ public class TCPServer {
 		int len = 1024;
 		in.close();
 
-		ServerSocket sock = new ServerSocket(port, len,
-				InetAddress.getByName("localhost"));
+		ServerSocket sock = new ServerSocket(port, len,	InetAddress.getByName("localhost"));
 		System.out.println("Server started at " + sock.getLocalPort());
 
 		while (true) {
 			Socket server = sock.accept();
-			// BufferedReader clientIn = new BufferedReader(new
-			// InputStreamReader(server.getInputStream()));
-			// DataOutputStream toClient = new
-			// DataOutputStream(server.getOutputStream());
 			Scanner inp = new Scanner(server.getInputStream());
 			int t = 1;
 			PrintWriter p = new PrintWriter(server.getOutputStream());
-			// System.out.println("TO STRING INPUT: " +
-			// server.getInputStream().toString() + " " + t++);
-			// System.out.println();
+			
 			try {
-				input = inp.nextLine(); // What the hell is this error?
+				input = inp.nextLine();
 				System.err.println("Received: " + input);
 				System.err.println("Status " + Arrays.toString(books) + "\n");
 
@@ -55,13 +48,10 @@ public class TCPServer {
 					output = "fail c" + client + " " + "b" + booknum;
 				}
 
-				System.err.println("SENDING MESSAGE: " + output
-						+ " TO ADDRESS: " + sock.getInetAddress().toString()
-						+ " PORT: " + sock.getLocalPort());
-				// toClient.writeBytes(output);
+				System.err.println("SENDING MESSAGE: " + output	+ " TO ADDRESS: " + sock.getInetAddress().toString() + " PORT: " + sock.getLocalPort());
+				
 				p.println(output);
 				p.flush();
-				// System.err.println("MESSAGE SENT");
 			} catch (Exception e) {
 			}
 
