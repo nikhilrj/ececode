@@ -5,6 +5,10 @@ import java.util.*;
 public class TCPServer {
 	
 	public static void main(String args[]) throws Exception {
+		String[] turnOff;
+		int clientsRun=-1;
+		int sleepTime=0;
+		
 		int SERVER_ID = args[0].charAt(6)-'0';
 		if(SERVER_ID < 0)
 			SERVER_ID = 1;
@@ -22,13 +26,28 @@ public class TCPServer {
 			addresses[i] = addr.substring(0,addr.indexOf(':'));
 			ports[i] = Integer.parseInt(addr.substring(addr.indexOf(':') + 1));
 		}
-
+		
+		if(in.hasNext()){
+			turnOff = in.nextLine().split(" ");
+			clientsRun = Integer.parseInt(turnOff[1]);
+			sleepTime = Integer.parseInt(turnOff[2]);
+		}
+		
 		int len = 1024;
 		in.close();
 		
 		ServerSocket sock = new ServerSocket(ports[SERVER_ID], len,	InetAddress.getByName("localhost"));
 
 		while(true){
+			if(clientsRun == Server.clientsRun){
+				System.out.println("GONNA SLEEP");
+				//sock.close();
+				Thread.sleep(sleepTime);
+				//sock = new ServerSocket(ports[SERVER_ID], len,	InetAddress.getByName("localhost"));
+				Server server = new Server();
+				clientsRun--;
+				//server.update();
+			}
 			System.err.println("Thread " + SERVER_ID + " started at " + sock.getLocalPort());
 			Server server = new Server(sock, ports, addresses, books, SERVER_ID);
 			new Thread(server).start();
@@ -48,9 +67,15 @@ class Server implements Runnable {
     static volatile int[] books;
     static volatile PriorityQueue<Request> pq = new PriorityQueue<Request>();
     static volatile LamportClock lc = new LamportClock();
+    static volatile int clientsRun = 0;
     //static volatile int acksReceived;
     Request myReq;
     //private static volatile int runOnce = 1;
+    
+    Server() throws IOException{
+    	System.out.println("GONNA UPDATE NOW");
+    	update();
+    }
         
     Server(ServerSocket sock, int[] ports, String[] addresses, int[] books, int sid) throws IOException{
         Server.ports = ports;
@@ -62,13 +87,49 @@ class Server implements Runnable {
 		server = sock.accept();
     }
     
+    void update(){
+    	String input;
+    	//while(!requestCS())	{}
+    	System.out.println("UPDATED");
+    	
+    	serverNetwork = new Socket[ports.length];
+        SERVERS_LIVE = ports.length-1;
+        for(int i = 1; i < ports.length; i++){
+        	if(i!=SERVER_ID){
+	        	try {
+					serverNetwork[i] = new Socket(InetAddress.getByName(addresses[i]), ports[i]);
+					PrintWriter outToServer = new PrintWriter(new OutputStreamWriter(serverNetwork[i].getOutputStream()));
+					BufferedReader inFromServer = new BufferedReader(new InputStreamReader(serverNetwork[i].getInputStream()));
+					
+					outToServer.println("UPDATE");
+					outToServer.flush();
+					
+					input = inFromServer.readLine();
+					System.err.println("Received: " + input);
+					
+					//String[] up = input.split(" "); 
+					
+					for(int j = 1; j < books.length; j++){
+						books[j] = Integer.parseInt(input.charAt(j-1)+"");
+					}
+					break;
+					
+	        		  
+				} catch (IOException e) {
+					System.out.println("DETECED SERVER " + i + " IS DOWN!!");
+					SERVERS_LIVE--;
+				}
+        	}
+		}
+        System.out.println("UPDATE WORKED!! " + Arrays.toString(books));
+    }
+    
 
     /**
      * Requests Critical Section for Server
      * @return
-     * @throws Exception
      */
-	private synchronized boolean requestCS() throws Exception {
+	private synchronized boolean requestCS() {
 		sendToServers("SERVER req " + SERVER_ID + " " + lc.getValue());
 		myReq = new Request(lc.getValue(), SERVER_ID);
 		pq.add(myReq);
@@ -80,7 +141,7 @@ class Server implements Runnable {
 		return true;
 	}
 	
-	private void releaseCS(String cat) throws Exception {
+	private void releaseCS(String cat)  {
 		System.out.println("releasing CS!");
 		//acksReceived = 0;
 		pq.remove(myReq);
@@ -122,9 +183,9 @@ class Server implements Runnable {
 			PrintWriter outToServer = new PrintWriter(new OutputStreamWriter(con.getOutputStream()));
 			outToServer.println(msg);
 			outToServer.flush();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			System.out.println("SERVER WAS DOWN");
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 	
@@ -220,7 +281,17 @@ class Server implements Runnable {
 				serverHandler(input);
 			}
 			else if(input.contains("CLIENT")) { // TODO MUST BE A CLIENT MESSAGE
+				clientsRun++;
 				p.println(clientOutput(input));
+			}
+			else if(input.contains("UPDATE")){
+				Thread.sleep(1000);
+				String out = "";
+				for(int i = 1; i < books.length; i++){
+					out+=books[i];
+				}
+				System.out.println("Sending update " + out);
+				p.println(out);
 			}
 
 			p.flush();

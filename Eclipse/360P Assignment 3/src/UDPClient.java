@@ -4,7 +4,7 @@ import java.util.Scanner;
 
 public class UDPClient {
 	public static void main(String[] args) throws FileNotFoundException, NumberFormatException, InterruptedException {
-		Scanner in = new Scanner(new File("client1.in"));
+		Scanner in = new Scanner(new File(args[0]));
 		int n = in.nextInt();	
 		in.nextLine();
 		String addr = in.nextLine();
@@ -28,24 +28,24 @@ public class UDPClient {
 						
 						if(commands[1].charAt(0) >= '0' && commands[1].charAt(0) <= '9')
 						{	Thread.sleep(Integer.parseInt(commands[1]));
-						System.out.println("Entered Sleep");
+						//System.out.println("Entered Sleep");
 						continue; 
 						}
 						String send = commands[0].charAt(1) + " " + commands[1].charAt(1) + " " + commands[2];
-						System.out.println("SENDING:" + send);
+						//System.out.println("SENDING:" + send);
 						
 						byte[] buffer = new byte[send.length()];
 						buffer = send.getBytes();
 						sPacket = new DatagramPacket(buffer, buffer.length, ia, port);
 						datasocket.send(sPacket);
-						System.out.println("Message Sent");
+						//System.out.println("Message Sent");
 					
 						
 					byte[] rbuffer = new byte[len];
 					rPacket = new DatagramPacket(rbuffer, rbuffer.length);
 					datasocket.receive(rPacket);
 					String retstring = new String(rPacket.getData(), 0, rPacket.getLength());
-					System.out.println("RECIEVED:" + retstring);
+					System.out.println(retstring);
 					}
 				} 
 				catch (IOException e) {

@@ -6,7 +6,7 @@ import java.util.Scanner;
 public class UDPServer {
 	
 	public static void main(String[] args) throws FileNotFoundException, IOException {
-		Scanner in = new Scanner(new File("server.in"));
+		Scanner in = new Scanner(new File(args[0]));
 		int n = in.nextInt();	
 		int[] books = new int[in.nextInt()+1]; //thejas cheating like a bro
 		in.nextLine();
@@ -17,21 +17,20 @@ public class UDPServer {
 		String hostname = "localhost"; // should this be 127..?
 		in.close();
 
-		DatagramPacket sPacket = null, rPacket;
-		
+	
 		try {
 			InetAddress ia = InetAddress.getByName(hostname);
 			DatagramSocket datasocket = new DatagramSocket(port,ia);
 			System.out.println("Server started at " + ia.toString() + ":" + port);
 			Scanner sc = new Scanner(System.in);
-			int t = 1; 
+			//int t = 1; 
 			while (true) {
 				//RECEIVING FROM CLIENTS
-				if(t == 1){
+			//	if(t == 1){
 				ServerThread server = new ServerThread(datasocket,books); 
 				new Thread(server).start();
-				t++; 
-				}
+				//t++; 
+				//}
 			}
 		}
 		catch (UnknownHostException e) {
@@ -50,47 +49,43 @@ public class UDPServer {
 class ServerThread implements Runnable 
 {
 	int len; 
-    DatagramSocket datasocket = null; 
-    int[] books; 
-    DatagramPacket sPacket = null, rPacket;
-	public ServerThread(DatagramSocket datasocket, int[] books) {
+    static DatagramSocket datasocket = null; 
+    static int[] books; 
+    static DatagramPacket sPacket;
+	static DatagramPacket rPacket;
+    byte[] rbuffer;
+	static InetAddress ia;
+	static String command;
+	static int port; 
+	public ServerThread(DatagramSocket datasocket, int[] books) throws IOException {
 		// TODO Auto-generated constructor stub
 		this.datasocket = datasocket; 
 		len = 1024;
+		rbuffer = new byte[len];
+		ia = InetAddress.getByName("localhost");
 		this.books = books;
+		rPacket = new DatagramPacket(rbuffer, rbuffer.length);
+		datasocket.receive(rPacket); 
+		command = new String(rPacket.getData(), 0, rPacket.getLength());
+		port = rPacket.getPort();
 	}
 
 	@Override
 	public void run() {
 		// TODO Auto-generated method stub
-		byte[] rbuffer = new byte[len];
-		rPacket = new DatagramPacket(rbuffer, rbuffer.length);
+		
+		
 		try {
-			datasocket.receive(rPacket);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		String command = new String(rPacket.getData(), 0, rPacket.getLength());
-		InetAddress IPAddress = rPacket.getAddress();
-		System.out.println("SERVER RECEIVED: " + command + " FROM ADDRESS: " + IPAddress.getHostName() + " PORT: " + rPacket.getPort());
-		InetAddress ia = null;
-		try {
-			ia = InetAddress.getByName("localhost");
-		} catch (UnknownHostException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		try {
-			parseandreturnpacket(command,books,sPacket,ia,rPacket,datasocket);
+			parseandreturnpacket();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
+		
 	}
 
-	private static synchronized void parseandreturnpacket(String command, int[] books, DatagramPacket sPacket, InetAddress ia, DatagramPacket rPacket, DatagramSocket datasocket) throws IOException {
+	private static synchronized void parseandreturnpacket() throws IOException {
 		String ret;
 		String[] commands = command.split(" ");
 		int client = Integer.parseInt(commands[0]);
@@ -113,7 +108,7 @@ class ServerThread implements Runnable
 		System.out.println("ATTEMPTING TO SEND : " + ret);
 			byte[] buffer = new byte[ret.length()];
 			buffer = ret.getBytes();
-			sPacket = new DatagramPacket(buffer, buffer.length, ia, rPacket.getPort());
+			sPacket = new DatagramPacket(buffer, buffer.length, ia, port);
 			datasocket.send(sPacket);
 			System.out.println("MESSAGE SENT");
 		}
