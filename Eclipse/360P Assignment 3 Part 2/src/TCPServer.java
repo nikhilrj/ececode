@@ -5,10 +5,9 @@ import java.util.*;
 public class TCPServer {
 	
 	public static void main(String args[]) throws Exception {
-		String input;
-		String output;
-		
 		int SERVER_ID = args[0].charAt(6)-'0';
+		if(SERVER_ID < 0)
+			SERVER_ID = 1;
 		
 		Scanner in = new Scanner(new File(args[0])); //server 0...n passed in here
 		
@@ -49,25 +48,33 @@ class Server implements Runnable {
     static volatile int[] books;
     static volatile PriorityQueue<Request> pq = new PriorityQueue<Request>();
     static volatile LamportClock lc = new LamportClock();
-    static volatile int acksReceived;
-    static volatile Request myReq;
+    //static volatile int acksReceived;
+    Request myReq;
+    //private static volatile int runOnce = 1;
         
     Server(ServerSocket sock, int[] ports, String[] addresses, int[] books, int sid) throws IOException{
-        this.ports = ports;
-        this.addresses = addresses;
-        this.sock = sock;
-        this.books = books;
-        this.SERVER_ID = sid;
-        this.SERVERS_LIVE = ports.length-1;
+        Server.ports = ports;
+        Server.addresses = addresses;
+        Server.sock = sock;
+        Server.books = books;
+        Server.SERVER_ID = sid;
+        Server.SERVERS_LIVE = ports.length-1;
 		server = sock.accept();
     }
     
 
+    /**
+     * Requests Critical Section for Server
+     * @return
+     * @throws Exception
+     */
 	private synchronized boolean requestCS() throws Exception {
 		sendToServers("SERVER req " + SERVER_ID + " " + lc.getValue());
 		myReq = new Request(lc.getValue(), SERVER_ID);
 		pq.add(myReq);
-		while(myReq == null || acksReceived < SERVERS_LIVE-1 || !pq.peek().equals(myReq)){} //blocks
+		
+		//TODO: add the acksReceived to myReq???
+		while(myReq == null || !pq.peek().equals(myReq) || pq.peek().acksReceived < SERVERS_LIVE-1){} //blocks
 		
 		System.out.println("made it past CS!");
 		return true;
@@ -75,18 +82,19 @@ class Server implements Runnable {
 	
 	private void releaseCS(String cat) throws Exception {
 		System.out.println("releasing CS!");
-		acksReceived = 0;
+		//acksReceived = 0;
 		pq.remove(myReq);
-		sendToServers("SERVER rel " + SERVER_ID + " " + lc.sendAction() + cat);//TODO how to make this work??
+		sendToServers("SERVER rel " + SERVER_ID + " " + lc.sendAction() + cat);
 	}
     
     /**
      * Sends msg to every server that is still alive
      * @param msg
      */
-	public void sendToServers(String msg) throws Exception {
+	public void sendToServers(String msg) {
 		System.err.println("Sending " + msg + " to all alive servers");
         serverNetwork = new Socket[ports.length];
+        SERVERS_LIVE = ports.length-1;
         for(int i = 1; i < ports.length; i++){
         	if(i!=SERVER_ID){
 	        	try {
@@ -94,7 +102,10 @@ class Server implements Runnable {
 					PrintWriter outToServer = new PrintWriter(new OutputStreamWriter(serverNetwork[i].getOutputStream()));
 					outToServer.println(msg);
 					outToServer.flush();
-				} catch (Exception e) {	}
+				} catch (IOException e) {
+					System.out.println("DETECED SERVER " + i + " IS DOWN!!");
+					SERVERS_LIVE--;
+				}
         	}
 		}
 	}
@@ -112,6 +123,7 @@ class Server implements Runnable {
 			outToServer.println(msg);
 			outToServer.flush();
 		} catch (IOException e) {
+			System.out.println("SERVER WAS DOWN");
 			e.printStackTrace();
 		}
 	}
@@ -129,10 +141,20 @@ class Server implements Runnable {
 			int serv = Integer.parseInt(commands[2]);
 			Request req = new Request(lc.getValue(), serv);
 			pq.add(req);
-			sendToServer(serv, "SERVER ack " + lc.sendAction()); //TODO see if this is bad or not
+			System.out.println("\n\nRECEIVED" + Arrays.toString(commands) + "\n");
+			sendToServer(serv, "SERVER ack " + lc.sendAction() + " " + Integer.parseInt(commands[3])); //TODO see if this is bad or not
 		}
 		else if(commands[1].equals("ack")){
-			acksReceived++;
+			//if(myReq.lc < Integer.parseInt(commands[2]))
+			//	acksReceived++;
+			Iterator<Request> it = pq.iterator();
+			while(it.hasNext()){
+				Request rq = (Request) it.next();
+				if(rq.SERVER_NUM == SERVER_ID && rq.lc < Integer.parseInt(commands[2]) ){//&& rq.lc == Integer.parseInt(commands[3])+runOnce){//== myReq.lc){
+					rq.acksReceived++;
+					//runOnce = 0;
+				}
+			}
 		}
 		else if(commands[1].equals("rel")){
 			if(commands[4].equals("1")){
@@ -142,7 +164,7 @@ class Server implements Runnable {
 				books[Integer.parseInt(commands[5])] = 0;
 			}
 			
-			Iterator it = pq.iterator();
+			Iterator<Request> it = pq.iterator();
 			while(it.hasNext()){
 				Request rq = (Request) it.next();
 				if(rq.SERVER_NUM == Integer.parseInt(commands[2]) && rq.lc == Integer.parseInt(commands[3]))
@@ -185,10 +207,10 @@ class Server implements Runnable {
     
 	public void run() {
 		String input;
+		lc.tick();
 		
 		try {
 			Scanner inp = new Scanner(server.getInputStream());
-			int t = 1;
 			PrintWriter p = new PrintWriter(server.getOutputStream());
 			
 			input = inp.nextLine();
@@ -201,9 +223,6 @@ class Server implements Runnable {
 				p.println(clientOutput(input));
 			}
 
-
-			//System.err.println("SENDING MESSAGE TO ADDRESS: " + sock.getInetAddress().toString() + " PORT: " + sock.getLocalPort() + "\n");
-			//p.println(output);
 			p.flush();
 
 		} catch (Exception e) {}
@@ -240,6 +259,7 @@ class LamportClock {
 class Request implements Comparable<Request> {
 	int lc;
 	int SERVER_NUM;
+	int acksReceived = 0;
 	
 	Request(int lc, int sn){
 		this.lc = lc;
