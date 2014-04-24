@@ -48,6 +48,7 @@ public class TCPServer {
 				clientsRun--;
 				//server.update();
 			}
+			Thread.sleep(100);
 			System.err.println("Thread " + SERVER_ID + " started at " + sock.getLocalPort());
 			Server server = new Server(sock, ports, addresses, books, SERVER_ID);
 			new Thread(server).start();
