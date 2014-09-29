@@ -80,6 +80,10 @@
   <ItemGroup>
     <ClCompile Include="lc3bsim3.c" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="input.asm" />
+    <None Include="ucode3" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

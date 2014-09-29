@@ -582,6 +582,28 @@ void eval_micro_sequencer() {
    * micro sequencer logic. Latch the next microinstruction.
    */
 
+	int CMI = CURRENT_LATCHES.MICROINSTRUCTION;
+	int CS_LOC;
+
+	if (GetIRD(CMI)){
+		CS_LOC = (CURRENT_LATCHES.IR & 0xF000) >> 12;
+	}
+
+	int j = GetJ(CMI);
+
+	switch (GetCOND(CMI)){
+		case 0: CS_LOC = j; break;
+		case 1: CS_LOC = j | (CURRENT_LATCHES.READY << 1); break;
+		case 2: CS_LOC = j | (CURRENT_LATCHES.BEN << 2); break;
+		case 3: CS_LOC = j | ((CURRENT_LATCHES.IR & 0x0800) >> 11); break;
+	}
+	
+	int i;
+	for (i = 0; i < CS_BITS; i++){
+		NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[CS_LOC][i];
+	}
+	NEXT_LATCHES.STATE_NUMBER = CS_LOC;
+
 }
 
 
