@@ -574,6 +574,7 @@ int main(int argc, char *argv[]) {
    Begin your code here 	  			       */
 /***************************************************************/
 
+int MEM_CYCLE = 0;
 
 void eval_micro_sequencer() {
 
@@ -582,7 +583,7 @@ void eval_micro_sequencer() {
    * micro sequencer logic. Latch the next microinstruction.
    */
 
-	int CMI = CURRENT_LATCHES.MICROINSTRUCTION;
+	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
 	int CS_LOC;
 
 	if (GetIRD(CMI)){
@@ -608,13 +609,20 @@ void eval_micro_sequencer() {
 
 
 void cycle_memory() {
- 
-  /* 
-   * This function emulates memory and the WE logic. 
-   * Keep track of which cycle of MEMEN we are dealing with.  
-   * If fourth, we need to latch Ready bit at the end of 
-   * cycle to prepare microsequencer for the fifth cycle.  
-   */
+
+	/*
+	 * This function emulates memory and the WE logic.
+	 * Keep track of which cycle of MEMEN we are dealing with.
+	 * If fourth, we need to latch Ready bit at the end of
+	 * cycle to prepare microsequencer for the fifth cycle.
+	 */
+
+	if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION)){
+		if (MEM_CYCLE % 4 == 0){
+			NEXT_LATCHES.READY = 1;
+			MEM_CYCLE = 0;
+		}
+	}
 
 }
 
@@ -631,6 +639,59 @@ void eval_bus_drivers() {
    *		 Gate_SHF,
    *		 Gate_MDR.
    */    
+
+	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
+	int inst = CURRENT_LATCHES.IR;
+	
+
+	/**************************DRMUX***************************/
+	int DRMUX_OUT = GetDRMUX(CMI) ? CURRENT_LATCHES.REGS[7] : CURRENT_LATCHES.REGS[(CURRENT_LATCHES.IR & 0x0E00) >> 9];
+
+	/**************************SR1*****************************/
+	int SR1MUX_OUT = GetSR1MUX(CMI) ? CURRENT_LATCHES.REGS[(CURRENT_LATCHES.IR & 0x01C0) >> 6] : CURRENT_LATCHES.REGS[(CURRENT_LATCHES.IR & 0x0E00) >> 9];
+
+	/**************************SR2*****************************/
+	int SR2MUX_OUT = (inst & 0x20) ? (((0x001F & inst) << 27) >> 27) : CURRENT_LATCHES.REGS[inst & 0x07];
+
+	/**************************ADDR1MUX************************/
+	int ADDR1MUX_OUT = GetADDR1MUX(CMI) ? SR1MUX_OUT : CURRENT_LATCHES.PC;
+
+
+	/**************************ADDR2MUX************************/
+	int ADDR2MUX_OUT;
+	switch (GetADDR2MUX(CMI)) {
+		case 0:	ADDR2MUX_OUT = 0; break;
+		case 1:	ADDR2MUX_OUT = (((inst & 0x3F) << 26) >> 26); break;
+		case 2: ADDR2MUX_OUT = (((inst & 0x1FF) << 23) >> 23); break;
+		case 3: ADDR2MUX_OUT = (((inst & 0x7FF) << 21) >> 21); break;
+	}
+
+	/**************************ADDER***************************/
+	int ADDER_OUTPUT = (ADDR1MUX_OUT << 1) + ADDR1MUX_OUT;
+
+	/**************************MARMUX**************************/
+	int MARMUX_OUT = GetMARMUX(CMI) ? ADDER_OUTPUT : ((inst & 0x00FF) << 1);
+
+	/**************************PCMUX***************************/
+	int PCMUX_OUT;
+	switch (GetPCMUX(CMI)) {
+		case 0: PCMUX_OUT = CURRENT_LATCHES.PC + 2; break;
+		case 1: PCMUX_OUT = BUS; break;
+		case 2: break;
+	}
+
+	/**************************ALU*****************************/
+	int ALU_OUT;
+	switch (GetALUK(CMI))
+	{
+		case 0: ALU_OUT = SR1MUX_OUT + SR2MUX_OUT; break;
+		case 1: ALU_OUT = SR1MUX_OUT & SR2MUX_OUT; break;
+		case 2: ALU_OUT = SR1MUX_OUT ^ SR2MUX_OUT; break;
+		case 3: ALU_OUT = SR1MUX_OUT; break;
+	}
+
+	/**************************SHF*****************************/
+	/**************************MDR*****************************/
 
 }
 
@@ -653,5 +714,9 @@ void latch_datapath_values() {
    * require sourcing the bus; therefore, this routine has to come 
    * after drive_bus.
    */       
+
+	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
+	int inst = CURRENT_LATCHES.IR;
+
 
 }
