@@ -627,6 +627,7 @@ void cycle_memory() {
 }
 
 
+int MARMUX_OUT, ALU_OUT, PCMUX_OUT, SHF_OUT, MDR_OUT;
 
 void eval_bus_drivers() {
 
@@ -642,10 +643,6 @@ void eval_bus_drivers() {
 
 	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
 	int inst = CURRENT_LATCHES.IR;
-	
-
-	/**************************DRMUX***************************/
-	int DRMUX_OUT = GetDRMUX(CMI) ? CURRENT_LATCHES.REGS[7] : CURRENT_LATCHES.REGS[(CURRENT_LATCHES.IR & 0x0E00) >> 9];
 
 	/**************************SR1*****************************/
 	int SR1MUX_OUT = GetSR1MUX(CMI) ? CURRENT_LATCHES.REGS[(CURRENT_LATCHES.IR & 0x01C0) >> 6] : CURRENT_LATCHES.REGS[(CURRENT_LATCHES.IR & 0x0E00) >> 9];
@@ -661,7 +658,7 @@ void eval_bus_drivers() {
 	int ADDR2MUX_OUT;
 	switch (GetADDR2MUX(CMI)) {
 		case 0:	ADDR2MUX_OUT = 0; break;
-		case 1:	ADDR2MUX_OUT = (((inst & 0x3F) << 26) >> 26); break;
+		case 1:	ADDR2MUX_OUT = (((inst & 0x03F) << 26) >> 26); break;
 		case 2: ADDR2MUX_OUT = (((inst & 0x1FF) << 23) >> 23); break;
 		case 3: ADDR2MUX_OUT = (((inst & 0x7FF) << 21) >> 21); break;
 	}
@@ -670,20 +667,11 @@ void eval_bus_drivers() {
 	int ADDER_OUTPUT = (ADDR1MUX_OUT << 1) + ADDR1MUX_OUT;
 
 	/**************************MARMUX**************************/
-	int MARMUX_OUT = GetMARMUX(CMI) ? ADDER_OUTPUT : ((inst & 0x00FF) << 1);
+	MARMUX_OUT = GetMARMUX(CMI) ? ADDER_OUTPUT : ((inst & 0x00FF) << 1);
 
-	/**************************PCMUX***************************/
-	int PCMUX_OUT;
-	switch (GetPCMUX(CMI)) {
-		case 0: PCMUX_OUT = CURRENT_LATCHES.PC + 2; break;
-		case 1: PCMUX_OUT = BUS; break;
-		case 2: break;
-	}
 
 	/**************************ALU*****************************/
-	int ALU_OUT;
-	switch (GetALUK(CMI))
-	{
+	switch (GetALUK(CMI)) {
 		case 0: ALU_OUT = SR1MUX_OUT + SR2MUX_OUT; break;
 		case 1: ALU_OUT = SR1MUX_OUT & SR2MUX_OUT; break;
 		case 2: ALU_OUT = SR1MUX_OUT ^ SR2MUX_OUT; break;
@@ -701,7 +689,23 @@ void drive_bus() {
   /* 
    * Datapath routine for driving the bus from one of the 5 possible 
    * tristate drivers. 
+   *         Gate_MARMUX,
+   *		 Gate_PC,
+   *		 Gate_ALU,
+   *		 Gate_SHF,
+   *		 Gate_MDR.
    */       
+	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
+	if (GetMARMUX(CMI))
+		BUS = MARMUX_OUT;
+	else if (GetGATE_PC(CMI))
+		BUS = PCMUX_OUT;
+	else if (GetGATE_ALU(CMI))
+		BUS = ALU_OUT;
+	else if (GetGATE_SHF(CMI))
+		BUS = SHF_OUT;
+	else if (GetGATE_MDR(CMI))
+		BUS = MDR_OUT;
 
 }
 
@@ -717,6 +721,46 @@ void latch_datapath_values() {
 
 	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
 	int inst = CURRENT_LATCHES.IR;
+
+	/**************************DRMUX***************************/
+	int DRMUX_OUT = GetDRMUX(CMI) ? 7 : ((CURRENT_LATCHES.IR & 0x0E00) >> 9);
+
+	/**************************PCMUX***************************/
+	switch (GetPCMUX(CMI)) {
+		case 0: PCMUX_OUT = CURRENT_LATCHES.PC + 2; break;
+		case 1: PCMUX_OUT = BUS; break;
+		case 2: break;
+	}
+	
+	/**************************MAR*****************************/
+	if (GetLD_MAR(CMI)) NEXT_LATCHES.MAR = Low16Bits(BUS);
+
+	/**************************MDR*****************************/
+	/*TODO: THIS IS BROKEN AS SHIT*/
+	if (GetLD_MDR(CMI)) NEXT_LATCHES.MDR = Low16Bits(BUS);
+
+	/**************************IR******************************/
+	if (GetLD_IR(CMI)) NEXT_LATCHES.IR = Low16Bits(BUS);
+
+	/**************************BEN*****************************/
+	if (GetLD_BEN(CMI)) NEXT_LATCHES.BEN = (((inst & 0x0800) >> 11) & CURRENT_LATCHES.N) | (((inst & 0x0400) >> 10) & CURRENT_LATCHES.Z) | (((inst & 0x0200) >> 9) & CURRENT_LATCHES.P);
+
+	/**************************REG*****************************/
+	if (GetLD_REG(CMI)) NEXT_LATCHES.REGS[DRMUX_OUT] = Low16Bits(BUS);
+	
+	/**************************CC******************************/
+	if (GetLD_CC(CMI)){
+		NEXT_LATCHES.N = 0;
+		NEXT_LATCHES.Z = 0;
+		NEXT_LATCHES.P = 0;
+
+		if (BUS < 0) NEXT_LATCHES.N = 1;
+		else if (BUS == 0) NEXT_LATCHES.Z = 1;
+		else NEXT_LATCHES.P = 1;
+	}
+
+	/**************************PC******************************/
+	if (GetLD_PC(CMI)) NEXT_LATCHES.PC = PCMUX_OUT;
 
 
 }
