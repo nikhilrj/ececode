@@ -625,7 +625,6 @@ void cycle_memory() {
 		MEM_CYCLE++;
 		if (MEM_CYCLE % 4 == 0){
 			NEXT_LATCHES.READY = 1;
-			MEM_CYCLE = 0;
 		}
 
 
@@ -652,6 +651,7 @@ void cycle_memory() {
 				}
 			}
 
+			MEM_CYCLE = 0;
 			NEXT_LATCHES.READY = 0;
 		}
 	}
