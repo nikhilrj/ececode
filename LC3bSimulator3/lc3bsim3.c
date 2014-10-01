@@ -711,6 +711,12 @@ void eval_bus_drivers() {
 	}
 
 	/**************************SHF*****************************/
+	switch ((inst & 0x30) >> 4){
+		case 0: SHF_OUT = Low16bits(SR1MUX_OUT << (inst & 0x0F)); break;
+		case 1: SHF_OUT = SR1MUX_OUT >> (inst & 0x0F); break;
+		case 2: SHF_OUT = Low16bits(((SR1MUX_OUT << 16) >> 16) >> (inst & 0x0F)); break;
+	}
+
 	/**************************MDR*****************************/
 	/*TODO: CHECK IF THIS IS RIGHT*/
 	MDR_OUT = CURRENT_LATCHES.MDR; 
