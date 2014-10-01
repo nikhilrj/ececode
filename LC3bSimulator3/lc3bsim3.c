@@ -651,6 +651,8 @@ void cycle_memory() {
 					NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR][CURRENT_LATCHES.MAR & 0x01];
 				}
 			}
+
+			NEXT_LATCHES.READY = 0;
 		}
 	}
 
