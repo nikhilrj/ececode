@@ -738,7 +738,7 @@ void drive_bus() {
    *		 Gate_MDR.
    */       
 	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
-	if (GetMARMUX(CMI))
+	if (GetGATE_MARMUX(CMI))
 		BUS = MARMUX_OUT;
 	else if (GetGATE_PC(CMI))
 		BUS = CURRENT_LATCHES.PC;
@@ -806,5 +806,5 @@ void latch_datapath_values() {
 	}
 
 	/**************************PC******************************/
-	if (GetLD_PC(CMI)) NEXT_LATCHES.PC = PCMUX_OUT;
+	if (GetLD_PC(CMI)) NEXT_LATCHES.PC = Low16bits(PCMUX_OUT);
 }
