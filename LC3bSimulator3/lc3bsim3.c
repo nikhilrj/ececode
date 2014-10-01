@@ -300,8 +300,8 @@ void rdump(FILE * dumpsim_file) {
     printf("-------------------------------------\n");
     printf("Cycle Count  : %d\n", CYCLE_COUNT);
     printf("PC           : 0x%0.4x\n", CURRENT_LATCHES.PC);
-    printf("IR           : 0x%0.4x\n", CURRENT_LATCHES.IR);
-    printf("STATE_NUMBER : 0x%0.4x\n\n", CURRENT_LATCHES.STATE_NUMBER);
+	printf("IR           : 0x%0.4x\n", CURRENT_LATCHES.IR);
+	printf("STATE_NUMBER : 0x%0.4x\n\n", CURRENT_LATCHES.STATE_NUMBER);
     printf("BUS          : 0x%0.4x\n", BUS);
     printf("MDR          : 0x%0.4x\n", CURRENT_LATCHES.MDR);
     printf("MAR          : 0x%0.4x\n", CURRENT_LATCHES.MAR);
@@ -589,18 +589,20 @@ void eval_micro_sequencer() {
 	if (GetIRD(CMI)){
 		CS_LOC = (CURRENT_LATCHES.IR & 0xF000) >> 12;
 	}
+	else{ 
+		int j = GetJ(CMI);
 
-	int j = GetJ(CMI);
-
-	switch (GetCOND(CMI)){
-		case 0: CS_LOC = j; break;
-		case 1: CS_LOC = j | (CURRENT_LATCHES.READY << 1); break;
-		case 2: CS_LOC = j | (CURRENT_LATCHES.BEN << 2); break;
-		case 3: CS_LOC = j | ((CURRENT_LATCHES.IR & 0x0800) >> 11); break;
+		switch (GetCOND(CMI)){
+			case 0: CS_LOC = j; break;
+			case 1: CS_LOC = j | (CURRENT_LATCHES.READY << 1); break;
+			case 2: CS_LOC = j | (CURRENT_LATCHES.BEN << 2); break;
+			case 3: CS_LOC = j | ((CURRENT_LATCHES.IR & 0x0800) >> 11); break;
+		}
 	}
+
 	
 	int i;
-	for (i = 0; i < CS_BITS; i++){
+	for (i = 0; i < CONTROL_STORE_BITS; i++){
 		NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[CS_LOC][i];
 	}
 	NEXT_LATCHES.STATE_NUMBER = CS_LOC;
@@ -617,10 +619,38 @@ void cycle_memory() {
 	 * cycle to prepare microsequencer for the fifth cycle.
 	 */
 
+	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
+
 	if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION)){
+		MEM_CYCLE++;
 		if (MEM_CYCLE % 4 == 0){
 			NEXT_LATCHES.READY = 1;
 			MEM_CYCLE = 0;
+		}
+
+
+		if (CURRENT_LATCHES.READY){
+			if (GetR_W(CMI)) {
+				if (GetDATA_SIZE(CMI)){
+					/*WRITE WORD*/
+					MEMORY[CURRENT_LATCHES.MAR >> 1][0] = CURRENT_LATCHES.MDR & 0x00FF;
+					MEMORY[CURRENT_LATCHES.MAR >> 1][1] = (CURRENT_LATCHES.MDR & 0xFF00) >> 8;
+				}
+				else{
+					/*WRITE BYTE*/
+					MEMORY[CURRENT_LATCHES.MAR >> 1][CURRENT_LATCHES.MAR & 0x01] = CURRENT_LATCHES.MDR & 0x000F;
+				}
+			}
+			else{
+				if (GetDATA_SIZE(CMI)){ 
+					/*READ WORD*/
+					NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR >> 1][0] + (MEMORY[CURRENT_LATCHES.MAR >> 1][1] << 8);
+				}
+				else{
+					/*READ BYTE*/
+					NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR][CURRENT_LATCHES.MAR & 0x01];
+				}
+			}
 		}
 	}
 
@@ -628,6 +658,8 @@ void cycle_memory() {
 
 
 int MARMUX_OUT, ALU_OUT, PCMUX_OUT, SHF_OUT, MDR_OUT;
+int ADDER_OUTPUT;
+int SR_SIGNAL = 0;
 
 void eval_bus_drivers() {
 
@@ -664,10 +696,10 @@ void eval_bus_drivers() {
 	}
 
 	/**************************ADDER***************************/
-	int ADDER_OUTPUT = (ADDR1MUX_OUT << 1) + ADDR1MUX_OUT;
+	ADDER_OUTPUT = (ADDR2MUX_OUT << GetLSHF1(CMI)) + ADDR1MUX_OUT;
 
 	/**************************MARMUX**************************/
-	MARMUX_OUT = GetMARMUX(CMI) ? ADDER_OUTPUT : ((inst & 0x00FF) << 1);
+	MARMUX_OUT = GetMARMUX(CMI) ? ADDER_OUTPUT : ((inst & 0x00FF) << GetLSHF1(CMI));
 
 
 	/**************************ALU*****************************/
@@ -675,11 +707,13 @@ void eval_bus_drivers() {
 		case 0: ALU_OUT = SR1MUX_OUT + SR2MUX_OUT; break;
 		case 1: ALU_OUT = SR1MUX_OUT & SR2MUX_OUT; break;
 		case 2: ALU_OUT = SR1MUX_OUT ^ SR2MUX_OUT; break;
-		case 3: ALU_OUT = SR1MUX_OUT; break;
+		case 3: ALU_OUT = SR1MUX_OUT; SR_SIGNAL = 1;  break;
 	}
 
 	/**************************SHF*****************************/
 	/**************************MDR*****************************/
+	/*TODO: CHECK IF THIS IS RIGHT*/
+	MDR_OUT = CURRENT_LATCHES.MDR; 
 
 }
 
@@ -699,13 +733,14 @@ void drive_bus() {
 	if (GetMARMUX(CMI))
 		BUS = MARMUX_OUT;
 	else if (GetGATE_PC(CMI))
-		BUS = PCMUX_OUT;
+		BUS = CURRENT_LATCHES.PC;
 	else if (GetGATE_ALU(CMI))
 		BUS = ALU_OUT;
 	else if (GetGATE_SHF(CMI))
 		BUS = SHF_OUT;
 	else if (GetGATE_MDR(CMI))
 		BUS = MDR_OUT;
+	else BUS = 0;
 
 }
 
@@ -729,24 +764,27 @@ void latch_datapath_values() {
 	switch (GetPCMUX(CMI)) {
 		case 0: PCMUX_OUT = CURRENT_LATCHES.PC + 2; break;
 		case 1: PCMUX_OUT = BUS; break;
-		case 2: break;
+		case 2: PCMUX_OUT = ADDER_OUTPUT;  break;
 	}
 	
 	/**************************MAR*****************************/
-	if (GetLD_MAR(CMI)) NEXT_LATCHES.MAR = Low16Bits(BUS);
+	if (GetLD_MAR(CMI)) NEXT_LATCHES.MAR = Low16bits(BUS);
 
 	/**************************MDR*****************************/
 	/*TODO: THIS IS BROKEN AS SHIT*/
-	if (GetLD_MDR(CMI)) NEXT_LATCHES.MDR = Low16Bits(BUS);
+	if (SR_SIGNAL){
+		NEXT_LATCHES.MDR = Low16bits(BUS);
+		SR_SIGNAL = 0;
+	}
 
 	/**************************IR******************************/
-	if (GetLD_IR(CMI)) NEXT_LATCHES.IR = Low16Bits(BUS);
+	if (GetLD_IR(CMI)) NEXT_LATCHES.IR = Low16bits(BUS);
 
 	/**************************BEN*****************************/
 	if (GetLD_BEN(CMI)) NEXT_LATCHES.BEN = (((inst & 0x0800) >> 11) & CURRENT_LATCHES.N) | (((inst & 0x0400) >> 10) & CURRENT_LATCHES.Z) | (((inst & 0x0200) >> 9) & CURRENT_LATCHES.P);
 
 	/**************************REG*****************************/
-	if (GetLD_REG(CMI)) NEXT_LATCHES.REGS[DRMUX_OUT] = Low16Bits(BUS);
+	if (GetLD_REG(CMI)) NEXT_LATCHES.REGS[DRMUX_OUT] = Low16bits(BUS);
 	
 	/**************************CC******************************/
 	if (GetLD_CC(CMI)){
@@ -761,6 +799,4 @@ void latch_datapath_values() {
 
 	/**************************PC******************************/
 	if (GetLD_PC(CMI)) NEXT_LATCHES.PC = PCMUX_OUT;
-
-
 }
