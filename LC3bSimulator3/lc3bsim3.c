@@ -301,7 +301,7 @@ void rdump(FILE * dumpsim_file) {
     printf("Cycle Count  : %d\n", CYCLE_COUNT);
     printf("PC           : 0x%0.4x\n", CURRENT_LATCHES.PC);
 	printf("IR           : 0x%0.4x\n", CURRENT_LATCHES.IR);
-	printf("STATE_NUMBER : 0x%0.4x\n\n", CURRENT_LATCHES.STATE_NUMBER);
+	printf("STATE_NUMBER : 0x%0.4d\n\n", CURRENT_LATCHES.STATE_NUMBER);
     printf("BUS          : 0x%0.4x\n", BUS);
     printf("MDR          : 0x%0.4x\n", CURRENT_LATCHES.MDR);
     printf("MAR          : 0x%0.4x\n", CURRENT_LATCHES.MAR);
@@ -637,7 +637,7 @@ void cycle_memory() {
 				}
 				else{
 					/*WRITE BYTE*/
-					MEMORY[CURRENT_LATCHES.MAR >> 1][CURRENT_LATCHES.MAR & 0x01] = CURRENT_LATCHES.MDR & 0x000F;
+					MEMORY[CURRENT_LATCHES.MAR >> 1][CURRENT_LATCHES.MAR & 0x01] = CURRENT_LATCHES.MDR & 0x00FF;
 				}
 			}
 			else{
@@ -647,7 +647,7 @@ void cycle_memory() {
 				}
 				else{
 					/*READ BYTE*/
-					NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR][CURRENT_LATCHES.MAR & 0x01];
+					NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR >> 1][CURRENT_LATCHES.MAR & 0x01];
 				}
 			}
 
@@ -716,7 +716,7 @@ void eval_bus_drivers() {
 	switch ((inst & 0x30) >> 4){
 		case 0: SHF_OUT = Low16bits(SR1MUX_OUT << (inst & 0x0F)); break;
 		case 1: SHF_OUT = SR1MUX_OUT >> (inst & 0x0F); break;
-		case 2: SHF_OUT = Low16bits(((SR1MUX_OUT << 16) >> 16) >> (inst & 0x0F)); break;
+		case 3: SHF_OUT = Low16bits(((SR1MUX_OUT << 16) >> 16) >> (inst & 0x0F)); break;
 	}
 
 	/**************************MDR*****************************/
