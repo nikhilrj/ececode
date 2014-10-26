@@ -129,7 +129,7 @@ int GetLSHF1(int *x)         { return(x[LSHF1]); }
 int GetLD_USP(int *x) { return x[LD_USP]; }
 int GetGATE_USP(int *x) { return x[GATE_USP]; }
 int GetLD_SSP(int *x) { return x[LD_SSP]; }
-int GetSSPMUX(int *x) { return x[SSPMUX1] << 1 + x[SSPMUX0]; }
+int GetSSPMUX(int *x) { return (x[SSPMUX1] << 1) + x[SSPMUX0]; }
 int GetGATE_SSP(int *x) { return x[GATE_SSP]; }
 int GetLD_INTV(int *x) { return x[LD_INTV]; }
 int GetSPR(int *x) { return x[SPR]; }
@@ -619,7 +619,7 @@ int main(int argc, char *argv[]) {
    Begin your code here 	  			       */
 /***************************************************************/
 
-#define TIMER_INTERRUPT 25
+#define TIMER_INTERRUPT 300
 int MEM_CYCLE = 0;
 int SR_SIGNAL2 = 0;
 
@@ -703,7 +703,7 @@ void cycle_memory() {
 				}
 				else{
 					/*READ BYTE*/
-					NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR >> 1][CURRENT_LATCHES.MAR & 0x01];
+					NEXT_LATCHES.MDR = ((MEMORY[CURRENT_LATCHES.MAR >> 1][CURRENT_LATCHES.MAR & 0x01]) << 24) >> 24;
 				}
 			}
 
@@ -826,7 +826,7 @@ void drive_bus() {
 		SR_SIGNAL = 1;
 	}
 	else if (GetGATE_VEC(CMI))
-		BUS = 0x0200 + CURRENT_LATCHES.INTV;
+		BUS = 0x0200 + (CURRENT_LATCHES.INTV << 1);
 	else BUS = 0;
 
 }
@@ -866,9 +866,8 @@ void latch_datapath_values() {
 	else if ((CURRENT_LATCHES.PSR & 0x8000) == 0 && GetLD_MDR(CMI)){
 		if (!SR_SIGNAL2)
 			NEXT_LATCHES.MDR = Low16bits(BUS);
-		else
-			SR_SIGNAL2 = 0;
 	}
+	SR_SIGNAL2 = 0;
 
 	/**************************IR******************************/
 	if (GetLD_IR(CMI)) NEXT_LATCHES.IR = Low16bits(BUS);
@@ -920,11 +919,16 @@ void latch_datapath_values() {
 	/**************************VECTORS*************************/
 	if (GetLD_INTV(CMI)) {
 		/*Preps interrupt vector*/
-		NEXT_LATCHES.INTV = 2;
+		NEXT_LATCHES.INTV = 1;
 
 		/*Decrements PC for Interrupt Execution*/
 		if (CURRENT_LATCHES.INT_FLAG) NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 
+		/*Unkown Upcode Exception*/
+		if ((CURRENT_LATCHES.IR >> 12) == 10 || (CURRENT_LATCHES.IR >> 12) == 11) {
+			NEXT_LATCHES.EXCV = 0x04;
+		}
+			
 		/*Lower INT_FLAG*/
 		NEXT_LATCHES.INT_FLAG = 0;
 	}
