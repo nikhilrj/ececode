@@ -685,6 +685,22 @@ void cycle_memory() {
 
 
 		if (CURRENT_LATCHES.READY){
+			if ((CURRENT_LATCHES.MAR < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 48) && (CURRENT_LATCHES.STATE_NUMBER != 28)){
+				/*Not in Super Mode, but attempted to access memory! We done goofed. */
+				NEXT_LATCHES.STATE_NUMBER = 63;
+				NEXT_LATCHES.INTV = 0x02;
+				NEXT_LATCHES.EXCV = 0x02;
+			}
+
+			if (CURRENT_LATCHES.STATE_NUMBER == 28) CURRENT_LATCHES.MAR <<= 1;
+
+			if (GetDATA_SIZE(CMI) && (CURRENT_LATCHES.MAR & 0x01)){
+				/*Unaligned access! We done goofed again */
+				NEXT_LATCHES.STATE_NUMBER = 63;
+				NEXT_LATCHES.INTV = 0x03;
+				NEXT_LATCHES.EXCV = 0x03;
+			}
+
 			if (GetR_W(CMI)) {
 				if (GetDATA_SIZE(CMI)){
 					/*WRITE WORD*/
@@ -919,13 +935,14 @@ void latch_datapath_values() {
 	/**************************VECTORS*************************/
 	if (GetLD_INTV(CMI)) {
 		/*Preps interrupt vector*/
-		NEXT_LATCHES.INTV = 1;
+		NEXT_LATCHES.INTV = 0x01;
 
 		/*Decrements PC for Interrupt Execution*/
 		if (CURRENT_LATCHES.INT_FLAG) NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 
 		/*Unkown Upcode Exception*/
 		if ((CURRENT_LATCHES.IR >> 12) == 10 || (CURRENT_LATCHES.IR >> 12) == 11) {
+			NEXT_LATCHES.INTV = 0x04;
 			NEXT_LATCHES.EXCV = 0x04;
 		}
 			
