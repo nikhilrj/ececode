@@ -694,11 +694,17 @@ void cycle_memory() {
 
 				MEM_CYCLE = 0;
 				NEXT_LATCHES.READY = 0;
+
+				int i;
+				for (i = 0; i < CONTROL_STORE_BITS; i++){
+					NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[63][i];
+				}
+				return;
 			}
 
-			/*if (CURRENT_LATCHES.STATE_NUMBER == 28) CURRENT_LATCHES.MAR <<= 1;*/
+			if (CURRENT_LATCHES.STATE_NUMBER == 28) CURRENT_LATCHES.MAR <<= 1;
 
-			if (GetDATA_SIZE(CMI) && (CURRENT_LATCHES.MAR & 0x01) && (CURRENT_LATCHES.STATE_NUMBER != 28)){
+			if (GetDATA_SIZE(CMI) && (CURRENT_LATCHES.MAR & 0x01)){
 				/*Unaligned access! We done goofed again */
 				NEXT_LATCHES.STATE_NUMBER = 63;
 				NEXT_LATCHES.INTV = 0x03;
@@ -706,6 +712,12 @@ void cycle_memory() {
 
 				MEM_CYCLE = 0;
 				NEXT_LATCHES.READY = 0;
+
+				int i;
+				for (i = 0; i < CONTROL_STORE_BITS; i++){
+					NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[63][i];
+				}
+				return;
 			}
 
 			if (GetR_W(CMI)) {
@@ -952,6 +964,7 @@ void latch_datapath_values() {
 			NEXT_LATCHES.INTV = 0x04;
 			NEXT_LATCHES.EXCV = 0x04;
 			NEXT_LATCHES.STATE_NUMBER = 63;
+
 		}
 			
 		/*Lower INT_FLAG*/
