@@ -930,6 +930,10 @@ void latch_datapath_values() {
 		}
 		else {
 			NEXT_LATCHES.PSR = Low16bits(BUS);
+			/*RESET CC TO OLD VALUES FROM PSR*/
+			NEXT_LATCHES.N = ((BUS & 0x04) >> 2);
+			NEXT_LATCHES.Z = ((BUS & 0x02) >> 1);
+			NEXT_LATCHES.P = ((BUS & 0x01));
 		}
 	}
 
@@ -948,6 +952,7 @@ void latch_datapath_values() {
 		if ((CURRENT_LATCHES.IR >> 12) == 10 || (CURRENT_LATCHES.IR >> 12) == 11) {
 			NEXT_LATCHES.INTV = 0x04;
 			NEXT_LATCHES.EXCV = 0x04;
+			NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 		}
 			
 		/*Lower INT_FLAG*/
