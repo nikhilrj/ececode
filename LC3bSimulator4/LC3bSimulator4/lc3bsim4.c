@@ -1,3 +1,8 @@
+/*
+	Name: Nikhil Joglekar
+	UTEID: nrj328
+*/
+
 /***************************************************************/
 /*                                                             */
 /*   LC-3b Simulator                                           */
@@ -340,7 +345,7 @@ void rdump(FILE * dumpsim_file) {
     printf("Cycle Count  : %d\n", CYCLE_COUNT);
     printf("PC           : 0x%0.4x\n", CURRENT_LATCHES.PC);
     printf("IR           : 0x%0.4x\n", CURRENT_LATCHES.IR);
-    printf("STATE_NUMBER : 0x%0.4d\n\n", CURRENT_LATCHES.STATE_NUMBER);
+    printf("STATE_NUMBER : 0x%0.4x\n\n", CURRENT_LATCHES.STATE_NUMBER);
     printf("BUS          : 0x%0.4x\n", BUS);
     printf("MDR          : 0x%0.4x\n", CURRENT_LATCHES.MDR);
     printf("MAR          : 0x%0.4x\n", CURRENT_LATCHES.MAR);
@@ -619,7 +624,7 @@ int main(int argc, char *argv[]) {
    Begin your code here 	  			       */
 /***************************************************************/
 
-#define TIMER_INTERRUPT 300
+int TIMER_INTERRUPT = 300;
 int MEM_CYCLE = 0;
 int SR_SIGNAL2 = 0;
 
@@ -635,6 +640,12 @@ void eval_micro_sequencer() {
 
 	if (GetIRD(CMI)){
 		CS_LOC = (CURRENT_LATCHES.IR & 0xF000) >> 12;
+	}
+	else if (CURRENT_LATCHES.EXC_FLAG){
+		CS_LOC = 63;
+		NEXT_LATCHES.INTV = CURRENT_LATCHES.EXC_FLAG;
+		NEXT_LATCHES.EXC_FLAG = 0;
+		NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 	}
 	else{
 		int j = GetJ(CMI);
@@ -685,40 +696,6 @@ void cycle_memory() {
 
 
 		if (CURRENT_LATCHES.READY){
-
-			if ((CURRENT_LATCHES.MAR < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 48) && (CURRENT_LATCHES.STATE_NUMBER != 28)){
-				/*Not in Super Mode, but attempted to access memory! We done goofed. */
-				NEXT_LATCHES.STATE_NUMBER = 63;
-				NEXT_LATCHES.INTV = 0x02;
-				NEXT_LATCHES.EXCV = 0x02;
-
-				MEM_CYCLE = 0;
-				NEXT_LATCHES.READY = 0;
-
-				int i;
-				for (i = 0; i < CONTROL_STORE_BITS; i++){
-					NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[63][i];
-				}
-				return;
-			}
-
-			if (CURRENT_LATCHES.STATE_NUMBER == 28) CURRENT_LATCHES.MAR <<= 1;
-
-			if (GetDATA_SIZE(CMI) && (CURRENT_LATCHES.MAR & 0x01)){
-				/*Unaligned access! We done goofed again */
-				NEXT_LATCHES.STATE_NUMBER = 63;
-				NEXT_LATCHES.INTV = 0x03;
-				NEXT_LATCHES.EXCV = 0x03;
-
-				MEM_CYCLE = 0;
-				NEXT_LATCHES.READY = 0;
-
-				int i;
-				for (i = 0; i < CONTROL_STORE_BITS; i++){
-					NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[63][i];
-				}
-				return;
-			}
 
 			if (GetR_W(CMI)) {
 				if (GetDATA_SIZE(CMI)){
@@ -890,7 +867,15 @@ void latch_datapath_values() {
 	}
 
 	/**************************MAR*****************************/
-	if (GetLD_MAR(CMI)) NEXT_LATCHES.MAR = Low16bits(BUS);
+	if (GetLD_MAR(CMI)){
+		NEXT_LATCHES.MAR = Low16bits(BUS);
+		if ((BUS < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 37) && ((CURRENT_LATCHES.IR >> 12) != 0x0F)) {
+			NEXT_LATCHES.EXC_FLAG = 2;
+		}
+		else if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
+			NEXT_LATCHES.EXC_FLAG = 3;
+		}
+	}
 
 	/**************************MDR*****************************/
 	/*TODO: THIS IS BROKEN AS SHIT*/
@@ -963,8 +948,6 @@ void latch_datapath_values() {
 		if ((CURRENT_LATCHES.IR >> 12) == 10 || (CURRENT_LATCHES.IR >> 12) == 11) {
 			NEXT_LATCHES.INTV = 0x04;
 			NEXT_LATCHES.EXCV = 0x04;
-			NEXT_LATCHES.STATE_NUMBER = 63;
-
 		}
 			
 		/*Lower INT_FLAG*/
