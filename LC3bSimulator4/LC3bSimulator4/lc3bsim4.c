@@ -685,20 +685,27 @@ void cycle_memory() {
 
 
 		if (CURRENT_LATCHES.READY){
+
 			if ((CURRENT_LATCHES.MAR < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 48) && (CURRENT_LATCHES.STATE_NUMBER != 28)){
 				/*Not in Super Mode, but attempted to access memory! We done goofed. */
 				NEXT_LATCHES.STATE_NUMBER = 63;
 				NEXT_LATCHES.INTV = 0x02;
 				NEXT_LATCHES.EXCV = 0x02;
+
+				MEM_CYCLE = 0;
+				NEXT_LATCHES.READY = 0;
 			}
 
-			if (CURRENT_LATCHES.STATE_NUMBER == 28) CURRENT_LATCHES.MAR <<= 1;
+			/*if (CURRENT_LATCHES.STATE_NUMBER == 28) CURRENT_LATCHES.MAR <<= 1;*/
 
-			if (GetDATA_SIZE(CMI) && (CURRENT_LATCHES.MAR & 0x01)){
+			if (GetDATA_SIZE(CMI) && (CURRENT_LATCHES.MAR & 0x01) && (CURRENT_LATCHES.STATE_NUMBER != 28)){
 				/*Unaligned access! We done goofed again */
 				NEXT_LATCHES.STATE_NUMBER = 63;
 				NEXT_LATCHES.INTV = 0x03;
 				NEXT_LATCHES.EXCV = 0x03;
+
+				MEM_CYCLE = 0;
+				NEXT_LATCHES.READY = 0;
 			}
 
 			if (GetR_W(CMI)) {
@@ -944,6 +951,7 @@ void latch_datapath_values() {
 		if ((CURRENT_LATCHES.IR >> 12) == 10 || (CURRENT_LATCHES.IR >> 12) == 11) {
 			NEXT_LATCHES.INTV = 0x04;
 			NEXT_LATCHES.EXCV = 0x04;
+			NEXT_LATCHES.STATE_NUMBER = 63;
 		}
 			
 		/*Lower INT_FLAG*/
