@@ -221,6 +221,8 @@ int PSR;
 int PTBR; /* This is initialized when we load the page table */
 int VA;   /* Temporary VA register */
 int NSR;  /* Next State Register */
+int DS;   /* Data Size*/
+int RW;   /* Read / Write */
 /* MODIFY: you should add here any other registers you need to implement virtual memory */
 
 } System_Latches;
@@ -714,9 +716,17 @@ void eval_micro_sequencer() {
 			CS_LOC |= (CURRENT_LATCHES.INT_FLAG << 3);
 		}
 
-		if (GetLD_MAR(CMI)){
+		if (GetLD_MAR(CMI) && ((CURRENT_LATCHES.PSR & 0x8000) == 0)){
 			/*This is a MAR Loading state. We need to save the NSR and set next state to 62*/
 			NEXT_LATCHES.NSR = CS_LOC;
+		
+			if (CURRENT_LATCHES.STATE_NUMBER == 7 || CURRENT_LATCHES.STATE_NUMBER == 3){
+				/*We must store next time*/
+				NEXT_LATCHES.RW = 1;
+			}
+
+			NEXT_LATCHES.DS = GetDATA_SIZE(CMI);
+
 			CS_LOC = 62;
 		}
 	}
@@ -895,8 +905,15 @@ void drive_bus() {
 		BUS = CURRENT_LATCHES.PSR;
 		SR_SIGNAL = 1;
 	}
-	else if (GetGATE_VEC(CMI))
+	else if (GetGATE_VEC(CMI)){
 		BUS = 0x0200 + (CURRENT_LATCHES.INTV << 1);
+	}
+	else if (GetGATE_PTBR(CMI)){
+		BUS = CURRENT_LATCHES.PTBR + 2 * (CURRENT_LATCHES.VA >> 9);
+	}
+	else if (GetGATE_VA(CMI)){
+		BUS = (CURRENT_LATCHES.MDR & PTE_PFN_MASK) + (CURRENT_LATCHES.VA & PAGE_OFFSET_MASK);
+	}
 	else BUS = 0;
 
 }
@@ -928,16 +945,17 @@ void latch_datapath_values() {
 	/*TODO THIS NEEDS TO BE REVAMPED*/
 	if (GetLD_MAR(CMI)){
 		NEXT_LATCHES.MAR = Low16bits(BUS);
-		if ((BUS < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 37) && ((CURRENT_LATCHES.IR >> 12) != 0x0F)) {
-			NEXT_LATCHES.EXC_FLAG = 2;
-		}
-		else if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
+
+		if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
 			NEXT_LATCHES.EXC_FLAG = 3;
 		}
+		else if ((BUS < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 37) && ((CURRENT_LATCHES.IR >> 12) != 0x0F)) {
+			NEXT_LATCHES.EXC_FLAG = 2;
+		}
+
 	}
 
 	/**************************MDR*****************************/
-	/*TODO: THIS IS BROKEN AS SHIT*/
 	if (SR_SIGNAL){
 		NEXT_LATCHES.MDR = Low16bits(BUS);
 		SR_SIGNAL = 0;
@@ -998,6 +1016,10 @@ void latch_datapath_values() {
 
 	/**************************SPR*****************************/
 	if (GetLD_SPR(CMI)) NEXT_LATCHES.REGS[6] = Low16bits(BUS);
+
+
+	/**************************VA******************************/
+	if (GetLD_VA(CMI)) NEXT_LATCHES.VA = CURRENT_LATCHES.MAR;
 
 	/**************************VECTORS*************************/
 	if (GetLD_INTV(CMI)) {
