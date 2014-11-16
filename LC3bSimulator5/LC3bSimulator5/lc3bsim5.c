@@ -711,6 +711,9 @@ void eval_micro_sequencer() {
 			NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 		}
 	}
+	else if (CURRENT_LATCHES.STATE_NUMBER == 34){
+		CS_LOC = CURRENT_LATCHES.NSR;
+	}
 	else if (GetIRD(CMI)){
 		/*Priority 2: IRD*/
 		CS_LOC = (CURRENT_LATCHES.IR & 0xF000) >> 12;
