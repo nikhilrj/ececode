@@ -1,0 +1,21 @@
+	.ORIG x3000
+	LEA R6, USP
+	LDW R6, R6, #0
+	LEA R1, DATA
+	LDW R1, R1, #0
+	ADD R3, R3, #10
+	ADD R3, R3, #11
+BACK ADD R3, R3, #-1
+	BRz DONE	   ; Last value
+	LDB R2, R1, #0 ; R2 = current val
+	ADD R0, R0, R2 ; R3 = running sum
+	ADD R1, R1, #1
+	BR BACK
+DONE LEA R1, STORE
+	LDW R1, R1, #0 
+	STW R0, R1, #0	
+	HALT
+USP	.FILL xFE00
+DATA .FILL xC000
+STORE .FILL xC014
+	.END

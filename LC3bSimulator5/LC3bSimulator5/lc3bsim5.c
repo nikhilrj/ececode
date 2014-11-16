@@ -697,6 +697,20 @@ void eval_micro_sequencer() {
 		NEXT_LATCHES.EXC_FLAG = 0;
 		NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 	}
+	else if (CURRENT_LATCHES.STATE_NUMBER == 58){
+		if ((CURRENT_LATCHES.MDR & 0x08) && (CURRENT_LATCHES.PSR & 0x8000 != 0)){
+			/*Protection Fault*/
+			CS_LOC = 63;
+			NEXT_LATCHES.INTV = 4;
+			NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
+		}
+		else if ((CURRENT_LATCHES.MDR & 0x04) == 0){
+			/*Page Fault*/
+			CS_LOC = 63;
+			NEXT_LATCHES.INTV = 2;
+			NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
+		}
+	}
 	else if (GetIRD(CMI)){
 		/*Priority 2: IRD*/
 		CS_LOC = (CURRENT_LATCHES.IR & 0xF000) >> 12;
@@ -1020,6 +1034,14 @@ void latch_datapath_values() {
 
 	/**************************VA******************************/
 	if (GetLD_VA(CMI)) NEXT_LATCHES.VA = CURRENT_LATCHES.MAR;
+
+
+	/**************************R,M*****************************/
+	if (CURRENT_LATCHES.STATE_NUMBER == 58) {
+		/*Setting state*/
+		NEXT_LATCHES.MDR |= 1; /*Reference bit set*/
+		NEXT_LATCHES.MDR = (NEXT_LATCHES.MDR & 0xFFFD) + (CURRENT_LATCHES.RW << 1); /*Modified bit set*/
+	}
 
 	/**************************VECTORS*************************/
 	if (GetLD_INTV(CMI)) {
