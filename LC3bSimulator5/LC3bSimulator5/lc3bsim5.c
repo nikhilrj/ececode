@@ -100,6 +100,7 @@ enum CS_BITS {
 	GATE_PTBR,
 	LD_VA,
 	GATE_VA,
+	LD_VM,
 	/* END MODIFIED BITS*/
     CONTROL_STORE_BITS
 } CS_BITS;
@@ -154,6 +155,7 @@ int GetCOND2(int *x) { return x[COND2]; }
 int GetGATE_PTBR(int *x) { return x[GATE_PTBR]; }
 int GetLD_VA(int *x) { return x[LD_VA]; }
 int GetGATE_VA(int *x) { return x[GATE_VA]; }
+int GetLD_VM(int *x) { return x[LD_VM]; }
 /* END MODIFY new GET functions */
 
 /***************************************************************/
@@ -367,7 +369,7 @@ void rdump(FILE * dumpsim_file) {
     printf("Cycle Count  : %d\n", CYCLE_COUNT);
     printf("PC           : 0x%0.4x\n", CURRENT_LATCHES.PC);
     printf("IR           : 0x%0.4x\n", CURRENT_LATCHES.IR);
-    printf("STATE_NUMBER : 0x%0.4x\n\n", CURRENT_LATCHES.STATE_NUMBER);
+    printf("STATE_NUMBER : 0x%0.4d\n\n", CURRENT_LATCHES.STATE_NUMBER);
     printf("BUS          : 0x%0.4x\n", BUS);
     printf("MDR          : 0x%0.4x\n", CURRENT_LATCHES.MDR);
     printf("MAR          : 0x%0.4x\n", CURRENT_LATCHES.MAR);
@@ -697,20 +699,6 @@ void eval_micro_sequencer() {
 		NEXT_LATCHES.EXC_FLAG = 0;
 		NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 	}
-	else if (CURRENT_LATCHES.STATE_NUMBER == 58){
-		if ((CURRENT_LATCHES.MDR & 0x08) && (CURRENT_LATCHES.PSR & 0x8000 != 0)){
-			/*Protection Fault*/
-			CS_LOC = 63;
-			NEXT_LATCHES.INTV = 4;
-			NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
-		}
-		else if ((CURRENT_LATCHES.MDR & 0x04) == 0){
-			/*Page Fault*/
-			CS_LOC = 63;
-			NEXT_LATCHES.INTV = 2;
-			NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
-		}
-	}
 	else if (CURRENT_LATCHES.STATE_NUMBER == 34){
 		CS_LOC = CURRENT_LATCHES.NSR;
 	}
@@ -733,7 +721,7 @@ void eval_micro_sequencer() {
 			CS_LOC |= (CURRENT_LATCHES.INT_FLAG << 3);
 		}
 
-		if (GetLD_MAR(CMI) && ((CURRENT_LATCHES.PSR & 0x8000) == 0)){
+		if (GetLD_VM(CMI) && ((CURRENT_LATCHES.PSR & 0x8000) != 0) && !CURRENT_LATCHES.INT_FLAG){
 			/*This is a MAR Loading state. We need to save the NSR and set next state to 62*/
 			NEXT_LATCHES.NSR = CS_LOC;
 		
@@ -741,10 +729,27 @@ void eval_micro_sequencer() {
 				/*We must store next time*/
 				NEXT_LATCHES.RW = 1;
 			}
+			else
+				NEXT_LATCHES.RW = 0;
 
 			NEXT_LATCHES.DS = GetDATA_SIZE(CMI);
 
 			CS_LOC = 62;
+		}
+
+		if (CURRENT_LATCHES.STATE_NUMBER == 58){
+			if ((CURRENT_LATCHES.MDR & 0x08) && (CURRENT_LATCHES.PSR & 0x8000 != 0)){
+				/*Protection Fault*/
+				CS_LOC = 63;
+				NEXT_LATCHES.INTV = 4;
+				NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
+			}
+			else if ((CURRENT_LATCHES.MDR & 0x04) == 0){
+				/*Page Fault*/
+				CS_LOC = 63;
+				NEXT_LATCHES.INTV = 2;
+				NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
+			}
 		}
 	}
 
@@ -966,9 +971,10 @@ void latch_datapath_values() {
 		if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
 			NEXT_LATCHES.EXC_FLAG = 3;
 		}
+		/* Protected taken care of by VM???
 		else if ((BUS < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 37) && ((CURRENT_LATCHES.IR >> 12) != 0x0F)) {
 			NEXT_LATCHES.EXC_FLAG = 2;
-		}
+		}*/
 
 	}
 
@@ -1056,8 +1062,8 @@ void latch_datapath_values() {
 
 		/*Unkown Upcode Exception*/
 		if ((CURRENT_LATCHES.IR >> 12) == 10 || (CURRENT_LATCHES.IR >> 12) == 11) {
-			NEXT_LATCHES.INTV = 0x04;
-			NEXT_LATCHES.EXCV = 0x04;
+			NEXT_LATCHES.INTV = 0x05;
+			NEXT_LATCHES.EXCV = 0x05;
 			NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
 		}
 
