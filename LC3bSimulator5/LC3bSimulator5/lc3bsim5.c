@@ -96,6 +96,10 @@ enum CS_BITS {
 	GATE_PSR,
 	GATE_VEC,
 	COND2,
+	/* LAB 5 MODIFIED*/
+	GATE_PTBR,
+	LD_VA,
+	GATE_VA,
 	/* END MODIFIED BITS*/
     CONTROL_STORE_BITS
 } CS_BITS;
@@ -146,6 +150,10 @@ int GetPSRMUX(int *x) { return x[PSRMUX]; }
 int GetGATE_PSR(int *x) { return x[GATE_PSR]; }
 int GetGATE_VEC(int *x) { return x[GATE_VEC]; }
 int GetCOND2(int *x) { return x[COND2]; }
+/*LAB 5*/
+int GetGATE_PTBR(int *x) { return x[GATE_PTBR]; }
+int GetLD_VA(int *x) { return x[LD_VA]; }
+int GetGATE_VA(int *x) { return x[GATE_VA]; }
 /* END MODIFY new GET functions */
 
 /***************************************************************/
@@ -212,6 +220,7 @@ int PSR;
 /* For lab 5 */
 int PTBR; /* This is initialized when we load the page table */
 int VA;   /* Temporary VA register */
+int NSR;  /* Next State Register */
 /* MODIFY: you should add here any other registers you need to implement virtual memory */
 
 } System_Latches;
@@ -679,14 +688,16 @@ void eval_micro_sequencer() {
 	int* CMI = CURRENT_LATCHES.MICROINSTRUCTION;
 	int CS_LOC;
 
-	if (GetIRD(CMI)){
-		CS_LOC = (CURRENT_LATCHES.IR & 0xF000) >> 12;
-	}
-	else if (CURRENT_LATCHES.EXC_FLAG){
+	if (CURRENT_LATCHES.EXC_FLAG){
+		/*Exception triggered, go to exception handler state*/
 		CS_LOC = 63;
 		NEXT_LATCHES.INTV = CURRENT_LATCHES.EXC_FLAG;
 		NEXT_LATCHES.EXC_FLAG = 0;
 		NEXT_LATCHES.PC = CURRENT_LATCHES.PC - 2;
+	}
+	else if (GetIRD(CMI)){
+		/*Priority 2: IRD*/
+		CS_LOC = (CURRENT_LATCHES.IR & 0xF000) >> 12;
 	}
 	else{
 		int j = GetJ(CMI);
@@ -701,6 +712,12 @@ void eval_micro_sequencer() {
 		if (GetCOND2(CMI)){
 			/*Interrupt was triggered in the previous instruction*/
 			CS_LOC |= (CURRENT_LATCHES.INT_FLAG << 3);
+		}
+
+		if (GetLD_MAR(CMI)){
+			/*This is a MAR Loading state. We need to save the NSR and set next state to 62*/
+			NEXT_LATCHES.NSR = CS_LOC;
+			CS_LOC = 62;
 		}
 	}
 
@@ -908,6 +925,7 @@ void latch_datapath_values() {
 	}
 
 	/**************************MAR*****************************/
+	/*TODO THIS NEEDS TO BE REVAMPED*/
 	if (GetLD_MAR(CMI)){
 		NEXT_LATCHES.MAR = Low16bits(BUS);
 		if ((BUS < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 37) && ((CURRENT_LATCHES.IR >> 12) != 0x0F)) {
