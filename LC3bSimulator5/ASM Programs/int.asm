@@ -7,7 +7,6 @@
 	LDW R0, R0, #0
 	LEA R2, PS		;R2 = counter
 	LDW R2, R2, #0
-	LDW R2, R2, #0
 
 back LDW R1, R0, #0
 	AND R1, R1, #-2	;set R=0

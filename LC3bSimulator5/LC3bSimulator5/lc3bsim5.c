@@ -968,9 +968,10 @@ void latch_datapath_values() {
 	if (GetLD_MAR(CMI)){
 		NEXT_LATCHES.MAR = Low16bits(BUS);
 
+		/* how to implement unaligned???
 		if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
 			NEXT_LATCHES.EXC_FLAG = 3;
-		}
+		}*/
 		/* Protected taken care of by VM???
 		else if ((BUS < 0x3000) && (CURRENT_LATCHES.PSR & 0x8000) && (CURRENT_LATCHES.STATE_NUMBER != 37) && ((CURRENT_LATCHES.IR >> 12) != 0x0F)) {
 			NEXT_LATCHES.EXC_FLAG = 2;
