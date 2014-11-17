@@ -369,7 +369,7 @@ void rdump(FILE * dumpsim_file) {
     printf("Cycle Count  : %d\n", CYCLE_COUNT);
     printf("PC           : 0x%0.4x\n", CURRENT_LATCHES.PC);
     printf("IR           : 0x%0.4x\n", CURRENT_LATCHES.IR);
-    printf("STATE_NUMBER : 0x%0.4d\n\n", CURRENT_LATCHES.STATE_NUMBER);
+    printf("STATE_NUMBER : 0x%0.4x\n\n", CURRENT_LATCHES.STATE_NUMBER);
     printf("BUS          : 0x%0.4x\n", BUS);
     printf("MDR          : 0x%0.4x\n", CURRENT_LATCHES.MDR);
     printf("MAR          : 0x%0.4x\n", CURRENT_LATCHES.MAR);
