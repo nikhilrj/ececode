@@ -966,10 +966,23 @@ void latch_datapath_values() {
 	/**************************MAR*****************************/
 	/*TODO THIS NEEDS TO BE REVAMPED*/
 	if (GetLD_MAR(CMI)){
+		if (CURRENT_LATCHES.STATE_NUMBER == 15){
+			BUS <<= 1;
+		}
+
 		NEXT_LATCHES.MAR = Low16bits(BUS);
 
-		/* how to implement unaligned???
-		if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
+		if (CURRENT_LATCHES.STATE_NUMBER == 59){
+			if (CURRENT_LATCHES.DS && (BUS & 0x01))
+				NEXT_LATCHES.EXC_FLAG = 3;
+		}
+		else if ((CURRENT_LATCHES.PSR & 0x8000) == 0){
+			if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
+				NEXT_LATCHES.EXC_FLAG = 3;
+			}
+		}
+		/*
+		if (GetDATA_SIZE(CMI) && (BUS & 0x01) && CURRENT_LATCHES.DS){
 			NEXT_LATCHES.EXC_FLAG = 3;
 		}*/
 		/* Protected taken care of by VM???
