@@ -738,7 +738,7 @@ void eval_micro_sequencer() {
 		}
 
 		if (CURRENT_LATCHES.STATE_NUMBER == 58){
-			if ((CURRENT_LATCHES.MDR & 0x08) && (CURRENT_LATCHES.PSR & 0x8000 != 0)){
+			if (((CURRENT_LATCHES.MDR & 0x08) == 0) && (CURRENT_LATCHES.PSR & 0x8000 != 0)){
 				/*Protection Fault*/
 				CS_LOC = 63;
 				NEXT_LATCHES.INTV = 4;
@@ -980,6 +980,9 @@ void latch_datapath_values() {
 			if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
 				NEXT_LATCHES.EXC_FLAG = 3;
 			}
+		}
+		else if (GetDATA_SIZE(CMI) && (BUS & 0x01)){
+			NEXT_LATCHES.EXC_FLAG = 3;
 		}
 		/*
 		if (GetDATA_SIZE(CMI) && (BUS & 0x01) && CURRENT_LATCHES.DS){
