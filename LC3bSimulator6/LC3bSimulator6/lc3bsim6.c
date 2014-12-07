@@ -978,7 +978,8 @@ void MEM_stage() {
 
 	NEW_PS.SR_DATA = read;
 	TRAP_PC = read;
-	TARGET_PC = PS.MEM_ADDRESS;
+	if (PS.MEM_V)
+		TARGET_PC = PS.MEM_ADDRESS;
 	mem_stall = (!DCACHE_R) & V_DCACHE_EN;
 
 	/**************BRANCH LOGIC*********************************/
@@ -1005,6 +1006,11 @@ void MEM_stage() {
 		V_MEM_LD_CC = Get_MEM_LD_CC(PS.MEM_CS);
 		V_MEM_LD_REG = Get_MEM_LD_REG(PS.MEM_CS);
 		v_mem_br_stall = Get_MEM_BR_STALL(PS.MEM_CS);
+	}
+	else{
+		V_MEM_LD_CC = 0;
+		V_MEM_LD_REG = 0;
+		v_mem_br_stall = 0;
 	}
 
 
@@ -1050,7 +1056,7 @@ void AGEX_stage() {
 
 	int ADDER_OUT = (ADDR2MUX_OUT << Get_LSHF1(PS.AGEX_CS)) + ADDR1MUX_OUT;
 
-	int ADDRESSMUX_OUT = (Get_ADDRESSMUX(PS.AGEX_CS)) ? ADDER_OUT : ((PS.AGEX_IR & 0x00FF) << Get_LSHF1(PS.AGEX_CS));
+	int ADDRESSMUX_OUT = (Get_ADDRESSMUX(PS.AGEX_CS)) ? ADDER_OUT : ((PS.AGEX_IR & 0x00FF) << 1);
 
 	/**************ALU_RESULT**********************************/
 	int SHF_OUT;
@@ -1078,6 +1084,11 @@ void AGEX_stage() {
 		V_AGEX_LD_CC = Get_AGEX_LD_CC(PS.AGEX_CS);
 		V_AGEX_LD_REG = Get_AGEX_LD_REG(PS.AGEX_CS);
 		v_agex_br_stall = Get_AGEX_BR_STALL(PS.AGEX_CS);
+	}
+	else{
+		V_AGEX_LD_CC = 0;
+		V_AGEX_LD_REG = 0;
+		v_agex_br_stall = 0;
 	}
 
 	LD_MEM = !mem_stall;
@@ -1112,7 +1123,10 @@ void DE_stage() {
 	int ii, jj = 0;
 	int LD_AGEX; /* You need to write code to compute the value of LD.AGEX signal */
 
-	v_de_br_stall = PS.DE_V & Get_DE_BR_STALL(cmi);
+	if (PS.DE_V)
+		v_de_br_stall = Get_DE_BR_STALL(cmi);
+	else
+		v_de_br_stall = 0;
 
 
 	/**************REGISTERS***********************************/
@@ -1133,21 +1147,27 @@ void DE_stage() {
 
 
 	/**************DEPENDENCY LOGIC****************************/
-	if (V_AGEX_LD_REG || V_MEM_LD_REG || v_sr_ld_reg){
-		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
-			dep_stall = 1;
-		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID) || (SR2_IN == PS.SR_DRID)))
-			dep_stall = 1; 
-		/*one of the later states is going to write to a source*/
+	if (v_sr_ld_reg && ((SR1_IN == PS.SR_DRID) || (SR2_IN == PS.SR_DRID))){
+		/*the dependent value just got loaded!*/
+		dep_stall = 0;
 	}
-	else if (Get_BR_OP(cmi) && (V_AGEX_LD_CC || V_MEM_LD_CC || v_sr_ld_cc)){
-		dep_stall = 1;
-	}
-	else{
-		/*TODO: is this correct?*/
+	if (v_sr_ld_cc && Get_DE_BR_OP(cmi)){
+		/*we have loaded the CC*/
 		dep_stall = 0;
 	}
 
+	/*dependency got written to, but we still might have another!*/
+	if (V_AGEX_LD_REG || V_MEM_LD_REG){
+		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID)))
+			dep_stall = 1;
+		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID)))
+			dep_stall = 1; 
+		/*one of the later states is going to write to a source*/
+	}
+	if (Get_DE_BR_OP(cmi) && (V_AGEX_LD_CC || V_MEM_LD_CC)){
+		/*instruction in agex or mem is going to set CC, we wait for it*/
+		dep_stall = 1;
+	}
 
 	LD_AGEX = !mem_stall;
 
@@ -1179,9 +1199,9 @@ void FETCH_stage() {
 	int read;
 	icache_access(PC, &read, &icache_r);
 	
-	int NO_STALLS = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall);
+	int NO_STALLS = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall) && !(v_mem_br_stall && (!MEM_PCMUX));
 
-	if (NO_STALLS){
+	if (NO_STALLS && !(PS.DE_V || PS.AGEX_V || PS.MEM_V || PS.SR_V)){
 		/*If LD.PC*/
 		switch (MEM_PCMUX)
 		{
@@ -1193,7 +1213,7 @@ void FETCH_stage() {
 
 	if (!dep_stall && !mem_stall){
 		/*If LD.DE*/
-		NEW_PS.DE_NPC = PC + 2; /*check if this must be +2!*/
+		NEW_PS.DE_NPC = PC +2; /*check if this must be +2!*/
 		NEW_PS.DE_IR = read;
 		NEW_PS.DE_V = NO_STALLS;
 	}
