@@ -1064,7 +1064,7 @@ void AGEX_stage() {
 		case 0: SHF_OUT = Low16bits(PS.AGEX_SR1 << (PS.AGEX_IR & 0x0F)); break;
 		case 1: SHF_OUT = PS.AGEX_SR1 >> (PS.AGEX_IR & 0x0F); break;
 		case 3: SHF_OUT = Low16bits(((PS.AGEX_SR1 << 16) >> 16) >> (PS.AGEX_IR & 0x0F)); break;
-		default: SHF_OUT = -1; break; /*shf should not be chosen!*/
+		default: SHF_OUT = 0; break; /*shf should not be chosen!*/
 	}
 
 	int SR2MUX_OUT = Get_SR2MUX(PS.AGEX_CS) ? (((0x001F & PS.AGEX_IR) << 27) >> 27) : PS.AGEX_SR2;
@@ -1147,27 +1147,29 @@ void DE_stage() {
 
 
 	/**************DEPENDENCY LOGIC****************************/
-	if (v_sr_ld_reg && ((SR1_IN == PS.SR_DRID) || (SR2_IN == PS.SR_DRID))){
-		/*the dependent value just got loaded!*/
-		dep_stall = 0;
-	}
-	if (v_sr_ld_cc && Get_DE_BR_OP(cmi)){
-		/*we have loaded the CC*/
-		dep_stall = 0;
-	}
+	//if (v_sr_ld_reg && ((SR1_IN == PS.SR_DRID) || (SR2_IN == PS.SR_DRID))){
+	//	/*the dependent value just got loaded!*/
+	//	dep_stall = 0;
+	//}
+	//if (v_sr_ld_cc && Get_DE_BR_OP(cmi)){
+	//	/*we have loaded the CC*/
+	//	dep_stall = 0;
+	//}
 
 	/*dependency got written to, but we still might have another!*/
-	if (V_AGEX_LD_REG || V_MEM_LD_REG){
-		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID)))
+	if (V_AGEX_LD_REG || V_MEM_LD_REG || v_sr_ld_reg){
+		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
 			dep_stall = 1;
-		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID)))
+		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
 			dep_stall = 1; 
 		/*one of the later states is going to write to a source*/
 	}
-	if (Get_DE_BR_OP(cmi) && (V_AGEX_LD_CC || V_MEM_LD_CC)){
+	if (Get_DE_BR_OP(cmi) && (V_AGEX_LD_CC || V_MEM_LD_CC || v_sr_ld_cc)){
 		/*instruction in agex or mem is going to set CC, we wait for it*/
 		dep_stall = 1;
 	}
+	else
+		dep_stall = 0;
 
 	LD_AGEX = !mem_stall;
 
@@ -1199,9 +1201,11 @@ void FETCH_stage() {
 	int read;
 	icache_access(PC, &read, &icache_r);
 	
-	int NO_STALLS = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall) && !(v_mem_br_stall && (!MEM_PCMUX));
+	int LD_PC = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall) || v_mem_br_stall;
+	int NO_STALLS = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall)/* && !(v_mem_br_stall && (!MEM_PCMUX))*/;
+	int NO_INSTRUCTIONS = PS.DE_IR || PS.AGEX_IR || PS.MEM_IR || PS.SR_IR;
 
-	if (NO_STALLS){
+	if (NO_STALLS || NO_INSTRUCTIONS){
 		/*If LD.PC*/
 		switch (MEM_PCMUX)
 		{
