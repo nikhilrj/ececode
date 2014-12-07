@@ -927,24 +927,102 @@ void SR_stage() {
 }
 
 
+
+int MEM_STALL, DCACHE_R, TRAP_PC, TARGET_PC;
+int V_MEM_LD_CC, V_MEM_LD_REG;
+int MEM_PCMUX;
+
 /************************* MEM_stage() *************************/
 void MEM_stage() {
+	int ii,jj = 0;
+	/* your code for MEM stage goes here */
 
-  int ii,jj = 0;
+	/**************MEMORY ACCESS********************************/
+	/*WE Logic*/
+	int V_DCACHE_EN = PS.MEM_V & Get_DCACHE_EN(PS.MEM_CS);
+
+	int read;
+	int w1 = 0;
+	int w0 = 0;
+	int write = PS.MEM_ALU_RESULT;
+
+	if (Get_DCACHE_RW(PS.MEM_CS)) {
+		if (Get_DATA_SIZE(PS.MEM_CS)){
+			/*WRITE WORD*/
+			w1 = 1;
+			w0 = 1;
+		}
+		else{
+			if (PS.MEM_ADDRESS & 0x01)	w1 = 1;
+			else w0 = 1;
+		}
+	}
+
+	if (V_DCACHE_EN)
+		dcache_access(PS.MEM_ADDRESS, &read, write, &DCACHE_R, w0, w1);
+	else
+		read = 0;
+
+	if (!Get_DCACHE_RW(PS.MEM_CS)) {
+		/*Read, we must latch SR.DATA properly*/
+		if (!Get_DATA_SIZE(PS.MEM_CS)){
+			/*Byte read*/
+			if (PS.MEM_ADDRESS & 0x01) {
+				/*we got the top byte*/
+				read = Low16bits(((read & 0xFF00) << 16) >> 24);
+			}
+			else
+				read = Low16bits(((read & 0x00FF) << 24) >> 24);
+		}
+	}
+
+	NEW_PS.SR_DATA = read;
+	TRAP_PC = read;
+	TARGET_PC = PS.MEM_ADDRESS;
+	MEM_STALL = (!DCACHE_R) & V_DCACHE_EN;
+
+	/**************BRANCH LOGIC*********************************/
+	if (PS.MEM_V) {
+		if (Get_BR_OP(PS.MEM_CS)){
+			if (PS.MEM_CC & (PS.MEM_IR & 0x0E00) >> 9){
+				/*branch test passes*/
+				MEM_PCMUX = 1;
+			}
+			else MEM_PCMUX = 0;
+		}
+		else if (Get_UNCOND_OP(PS.MEM_CS)){
+			MEM_PCMUX = 1;
+		}
+		else if (Get_TRAP_OP(PS.MEM_CS)){
+			MEM_PCMUX = 2;
+		}
+		else MEM_PCMUX = 0;
+	}
+
   
-  /* your code for MEM stage goes here */
+	/**************FUTURE LOGIC*********************************/
+	if (PS.MEM_V){
+		V_MEM_LD_CC = Get_MEM_LD_CC(PS.MEM_CS);
+		V_MEM_LD_REG = Get_MEM_LD_REG(PS.MEM_CS);
+		v_mem_br_stall = Get_MEM_BR_STALL(PS.MEM_CS);
+	}
 
 
+	/**************NEW STATE***********************************/
+	NEW_PS.SR_ADDRESS = PS.MEM_ADDRESS;
+	NEW_PS.SR_NPC = PS.MEM_NPC;
+	NEW_PS.SR_ALU_RESULT = PS.MEM_ALU_RESULT;
+	NEW_PS.SR_IR = PS.MEM_IR;
+	NEW_PS.SR_DRID = PS.MEM_IR;
+	NEW_PS.SR_V = (!mem_stall) & PS.MEM_V;
+	
 
-
-  
-  /* The code below propagates the control signals from MEM.CS latch
-     to SR.CS latch. You still need to latch other values into the
-     other SR latches. */
-  for (ii=COPY_SR_CS_START; ii < NUM_MEM_CS_BITS; ii++) {
-    NEW_PS.SR_CS [jj++] = PS.MEM_CS [ii];
-  }
-
+	/* The code below propagates the control signals from MEM.CS latch
+		to SR.CS latch. You still need to latch other values into the
+		other SR latches. */
+	for (ii=COPY_SR_CS_START; ii < NUM_MEM_CS_BITS; ii++) {
+		NEW_PS.SR_CS [jj++] = PS.MEM_CS [ii];
+	}
 }
 
 
