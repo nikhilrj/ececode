@@ -1170,13 +1170,30 @@ void DE_stage() {
 
 }
 
-
-
 /************************* FETCH_stage() *************************/
 void FETCH_stage() {
 
 	/* your code for FETCH stage goes here */
 
+	int read;
+	icache_access(PC, &read, &icache_r);
+	
+	int NO_STALLS = !(!icache_r || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall);
 
+	if (NO_STALLS){
+		/*If LD.PC*/
+		switch (MEM_PCMUX)
+		{
+			case 0: PC = PC + 2; break;
+			case 1: PC = TARGET_PC; break;
+			case 2: PC = TRAP_PC; break;
+		}
+	}
+
+	if (!dep_stall && !mem_stall){
+		/*If LD.DE*/
+		NEW_PS.DE_NPC = PC + 2; /*check if this must be +2!*/
+		NEW_PS.DE_IR = read;
+		NEW_PS.DE_V = NO_STALLS;
+	}
 }
-
