@@ -1027,7 +1027,7 @@ void MEM_stage() {
 
 
 
-int V_AGEX_LD_CC, V_AGEX_LD_REG, V_AGEX_BR_STALL;
+int V_AGEX_LD_CC, V_AGEX_LD_REG;
 /************************* AGEX_stage() *************************/
 void AGEX_stage() {
 
@@ -1043,14 +1043,14 @@ void AGEX_stage() {
 	switch (Get_ADDR2MUX(PS.AGEX_CS))
 	{
 		case 0:	ADDR2MUX_OUT = 0; break;
-		case 1: ADDR2MUX_OUT = Low16Bits((PS.AGEX_IR << 26) >> 26); break;
-		case 2: ADDR2MUX_OUT = Low16Bits((PS.AGEX_IR << 23) >> 23); break;
-		case 3: ADDR2MUX_OUT = Low16Bits((PS.AGEX_IR << 21) >> 21); break;
+		case 1: ADDR2MUX_OUT = Low16bits((PS.AGEX_IR << 26) >> 26); break;
+		case 2: ADDR2MUX_OUT = Low16bits((PS.AGEX_IR << 23) >> 23); break;
+		case 3: ADDR2MUX_OUT = Low16bits((PS.AGEX_IR << 21) >> 21); break;
 	}
 
 	int ADDER_OUT = (ADDR2MUX_OUT << Get_LSHF1(PS.AGEX_CS)) + ADDR1MUX_OUT;
 
-	int ADDRESSMUX_OUT = (Get_ADDRESSMUX(PS.AGEX_CS)) ? ADDER_OUT : ((PS.AGEX_IR & 0x00FF) << GetLSHF1(PS.AGEX_CS));
+	int ADDRESSMUX_OUT = (Get_ADDRESSMUX(PS.AGEX_CS)) ? ADDER_OUT : ((PS.AGEX_IR & 0x00FF) << Get_LSHF1(PS.AGEX_CS));
 
 	/**************ALU_RESULT**********************************/
 	int SHF_OUT;
@@ -1060,10 +1060,10 @@ void AGEX_stage() {
 		case 3: SHF_OUT = Low16bits(((PS.AGEX_SR1 << 16) >> 16) >> (PS.AGEX_IR & 0x0F)); break;
 	}
 
-	int SR2MUX_OUT = (PS.AGEX_IR & 0x20) ? (((0x001F & PS.AGEX_IR) << 27) >> 27) : PS.AGEX_SR2;
+	int SR2MUX_OUT = Get_SR2MUX(PS.AGEX_CS) ? (((0x001F & PS.AGEX_IR) << 27) >> 27) : PS.AGEX_SR2;
 
 	int ALU_OUT;
-	switch (GetALUK(PS.AGEX_CS)) {
+	switch (Get_ALUK(PS.AGEX_CS)) {
 		case 0: ALU_OUT = PS.AGEX_SR1 + SR2MUX_OUT; break;
 		case 1: ALU_OUT = PS.AGEX_SR1 & SR2MUX_OUT; break;
 		case 2: ALU_OUT = PS.AGEX_SR1 ^ SR2MUX_OUT; break;
@@ -1076,7 +1076,7 @@ void AGEX_stage() {
 	if (PS.AGEX_V){
 		V_AGEX_LD_CC = Get_AGEX_LD_CC(PS.AGEX_CS);
 		V_AGEX_LD_REG = Get_AGEX_LD_REG(PS.AGEX_CS);
-		V_AGEX_BR_STALL = Get_AGEX_BR_STALL(PS.AGEX_CS);
+		v_agex_br_stall = Get_AGEX_BR_STALL(PS.AGEX_CS);
 	}
 
 	LD_MEM = mem_stall;
@@ -1105,31 +1105,68 @@ void AGEX_stage() {
 /************************* DE_stage() *************************/
 void DE_stage() {
 
-  int CONTROL_STORE_ADDRESS;  /* You need to implement the logic to
-			         set the value of this variable. Look
-			         at the figure for DE stage */ 
-  int ii, jj = 0;
-  int LD_AGEX; /* You need to write code to compute the value of
-		  LD.AGEX signal */
+	int CONTROL_STORE_ADDRESS = ((PS.DE_IR & 0xF800) >> 11) + ((PS.DE_IR & 0x20) >> 5);
+	int* cmi = CONTROL_STORE[CONTROL_STORE_ADDRESS];
 
-  /* your code for DE stage goes here */
+	int ii, jj = 0;
+	int LD_AGEX; /* You need to write code to compute the value of LD.AGEX signal */
 
-  
+	v_de_br_stall = PS.DE_V & Get_DE_BR_STALL(cmi);
 
 
+	/**************REGISTERS***********************************/
+	int SR1_IN = (PS.DE_IR & 0x01C0) >> 6;
+	int SR2_IN = (PS.DE_IR & 0x2000) ? (PS.DE_IR & 0xE000) >> 9 : PS.DE_IR & 0x0007;
 
-  if (LD_AGEX) {
-    /* Your code for latching into AGEX latches goes here */
-    
+	if (v_sr_ld_reg){
+		REGS[sr_reg_id] = sr_reg_data;
+	}
+
+	if (v_sr_ld_cc){
+		N = sr_n;
+		Z = sr_z;
+		P = sr_p;
+	}
+
+	int DRMUX_OUT = Get_DRMUX(cmi) ? 7 : (PS.DE_IR & 0x0E00) >> 9;
 
 
+	/**************DEPENDENCY LOGIC****************************/
+	if (V_AGEX_LD_REG || V_MEM_LD_REG || v_sr_ld_reg){
+		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
+			dep_stall = 1;
+		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID) || (SR2_IN == PS.SR_DRID)))
+			dep_stall = 1; 
+		/*one of the later states is going to write to a source*/
+	}
+	else if (Get_BR_OP(cmi) && (V_AGEX_LD_CC || V_MEM_LD_CC || v_sr_ld_cc)){
+		dep_stall = 1;
+	}
+	else{
+		/*TODO: is this correct?*/
+		dep_stall = 0;
+	}
 
-    /* The code below propagates the control signals from the CONTROL
-       STORE to the AGEX.CS latch. */
-    for (ii = COPY_AGEX_CS_START; ii< NUM_CONTROL_STORE_BITS; ii++) {
-      NEW_PS.AGEX_CS[jj++] = CONTROL_STORE[CONTROL_STORE_ADDRESS][ii];
-    }
-  }
+
+	LD_AGEX = !mem_stall;
+
+	if (LD_AGEX) {
+		/* Your code for latching into AGEX latches goes here */
+		NEW_PS.AGEX_NPC = PS.DE_NPC;
+		NEW_PS.AGEX_IR = PS.DE_IR;
+		NEW_PS.AGEX_SR1 = REGS[SR1_IN];
+		NEW_PS.AGEX_SR2 = REGS[SR2_IN];
+		NEW_PS.AGEX_CC = (N << 2) + (Z << 1) + P;
+		NEW_PS.AGEX_DRID = DRMUX_OUT;
+		NEW_PS.AGEX_V = PS.DE_V & !(dep_stall);
+
+
+		/* The code below propagates the control signals from the CONTROL
+		   STORE to the AGEX.CS latch. */
+		for (ii = COPY_AGEX_CS_START; ii < NUM_CONTROL_STORE_BITS; ii++) {
+			NEW_PS.AGEX_CS[jj++] = CONTROL_STORE[CONTROL_STORE_ADDRESS][ii];
+		}
+	}
 
 }
 
@@ -1138,8 +1175,8 @@ void DE_stage() {
 /************************* FETCH_stage() *************************/
 void FETCH_stage() {
 
-  /* your code for FETCH stage goes here */
+	/* your code for FETCH stage goes here */
 
 
-}  
+}
 
