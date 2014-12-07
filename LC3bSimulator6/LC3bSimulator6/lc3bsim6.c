@@ -1013,7 +1013,7 @@ void MEM_stage() {
 	NEW_PS.SR_NPC = PS.MEM_NPC;
 	NEW_PS.SR_ALU_RESULT = PS.MEM_ALU_RESULT;
 	NEW_PS.SR_IR = PS.MEM_IR;
-	NEW_PS.SR_DRID = PS.MEM_IR;
+	NEW_PS.SR_DRID = PS.MEM_DRID;
 	NEW_PS.SR_V = (!mem_stall) & PS.MEM_V;
 	
 
@@ -1058,6 +1058,7 @@ void AGEX_stage() {
 		case 0: SHF_OUT = Low16bits(PS.AGEX_SR1 << (PS.AGEX_IR & 0x0F)); break;
 		case 1: SHF_OUT = PS.AGEX_SR1 >> (PS.AGEX_IR & 0x0F); break;
 		case 3: SHF_OUT = Low16bits(((PS.AGEX_SR1 << 16) >> 16) >> (PS.AGEX_IR & 0x0F)); break;
+		default: SHF_OUT = -1; break; /*shf should not be chosen!*/
 	}
 
 	int SR2MUX_OUT = Get_SR2MUX(PS.AGEX_CS) ? (((0x001F & PS.AGEX_IR) << 27) >> 27) : PS.AGEX_SR2;
@@ -1079,7 +1080,7 @@ void AGEX_stage() {
 		v_agex_br_stall = Get_AGEX_BR_STALL(PS.AGEX_CS);
 	}
 
-	LD_MEM = mem_stall;
+	LD_MEM = !mem_stall;
 
 	if (LD_MEM) {
 		/* Your code for latching into MEM latches goes here */
@@ -1105,7 +1106,7 @@ void AGEX_stage() {
 /************************* DE_stage() *************************/
 void DE_stage() {
 
-	int CONTROL_STORE_ADDRESS = ((PS.DE_IR & 0xF800) >> 11) + ((PS.DE_IR & 0x20) >> 5);
+	int CONTROL_STORE_ADDRESS = ((PS.DE_IR & 0xF800) >> 10) + ((PS.DE_IR & 0x20) >> 5);
 	int* cmi = CONTROL_STORE[CONTROL_STORE_ADDRESS];
 
 	int ii, jj = 0;
@@ -1178,7 +1179,7 @@ void FETCH_stage() {
 	int read;
 	icache_access(PC, &read, &icache_r);
 	
-	int NO_STALLS = !(!icache_r || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall);
+	int NO_STALLS = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall);
 
 	if (NO_STALLS){
 		/*If LD.PC*/
