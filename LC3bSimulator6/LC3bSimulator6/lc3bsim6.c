@@ -983,7 +983,7 @@ void MEM_stage() {
 	mem_stall = (!DCACHE_R) & V_DCACHE_EN;
 
 	/**************BRANCH LOGIC*********************************/
-	if (PS.MEM_V) {
+	if (1/*PS.MEM_V*/) {
 		if (Get_BR_OP(PS.MEM_CS)){
 			if (PS.MEM_CC & (PS.MEM_IR & 0x0E00) >> 9){
 				/*branch test passes*/
@@ -1201,24 +1201,28 @@ void FETCH_stage() {
 	int read;
 	icache_access(PC, &read, &icache_r);
 	
-	int LD_PC = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall) || v_mem_br_stall;
-	int NO_STALLS = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall)/* && !(v_mem_br_stall && (!MEM_PCMUX))*/;
-	int NO_INSTRUCTIONS = PS.DE_IR || PS.AGEX_IR || PS.MEM_IR || PS.SR_IR;
+	int LD_PC = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall);
 
-	if (NO_STALLS){
-		/*If LD.PC*/
-		switch (MEM_PCMUX)
-		{
-			case 0: PC = PC + 2; break;
-			case 1: PC = TARGET_PC; break;
-			case 2: PC = TRAP_PC; break;
-		}
+	int TEMP_PC = PC;
+	int TEMP_PC2 = PC + 2;
+
+	switch (MEM_PCMUX)
+	{
+	case 0: TEMP_PC = PC + 2; break;
+	case 1: TEMP_PC = TARGET_PC; break;
+	case 2: TEMP_PC = TRAP_PC; break;
 	}
 
 	if (!dep_stall && !mem_stall){
 		/*If LD.DE*/
-		NEW_PS.DE_NPC = PC + 2; /*check if this must be +2!*/
+		NEW_PS.DE_NPC = TEMP_PC2; /*check if this must be +2!*/
 		NEW_PS.DE_IR = read;
 		NEW_PS.DE_V = icache_r && !(v_agex_br_stall || v_de_br_stall || v_mem_br_stall) && !mem_stall;
+	}
+
+
+	if (LD_PC || v_mem_br_stall){
+		/*If LD.PC*/
+		PC = TEMP_PC;
 	}
 }
