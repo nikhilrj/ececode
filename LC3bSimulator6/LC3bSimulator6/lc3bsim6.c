@@ -928,7 +928,7 @@ void SR_stage() {
 
 
 
-int MEM_STALL, DCACHE_R, TRAP_PC, TARGET_PC;
+int DCACHE_R, TRAP_PC, TARGET_PC;
 int V_MEM_LD_CC, V_MEM_LD_REG;
 int MEM_PCMUX;
 
@@ -979,7 +979,7 @@ void MEM_stage() {
 	NEW_PS.SR_DATA = read;
 	TRAP_PC = read;
 	TARGET_PC = PS.MEM_ADDRESS;
-	MEM_STALL = (!DCACHE_R) & V_DCACHE_EN;
+	mem_stall = (!DCACHE_R) & V_DCACHE_EN;
 
 	/**************BRANCH LOGIC*********************************/
 	if (PS.MEM_V) {
@@ -1008,7 +1008,7 @@ void MEM_stage() {
 	}
 
 
-	/**************NEW STATE***********************************/
+	/**************NEW STATE************************************/
 	NEW_PS.SR_ADDRESS = PS.MEM_ADDRESS;
 	NEW_PS.SR_NPC = PS.MEM_NPC;
 	NEW_PS.SR_ALU_RESULT = PS.MEM_ALU_RESULT;
@@ -1026,28 +1026,78 @@ void MEM_stage() {
 }
 
 
+
+int V_AGEX_LD_CC, V_AGEX_LD_REG, V_AGEX_BR_STALL;
 /************************* AGEX_stage() *************************/
 void AGEX_stage() {
 
-  int ii, jj = 0;
-  int LD_MEM; /* You need to write code to compute the value of LD.MEM
+	int ii, jj = 0;
+	int LD_MEM; /* You need to write code to compute the value of LD.MEM
 		 signal */
 
-  /* your code for AGEX stage goes here */
+	/* your code for AGEX stage goes here */
 
-  
+	/**************MEM_ADDRESS**********************************/
+	int ADDR1MUX_OUT = (Get_ADDR1MUX(PS.AGEX_CS)) ? PS.AGEX_SR1 : PS.AGEX_NPC;
+	int ADDR2MUX_OUT;
+	switch (Get_ADDR2MUX(PS.AGEX_CS))
+	{
+		case 0:	ADDR2MUX_OUT = 0; break;
+		case 1: ADDR2MUX_OUT = Low16Bits((PS.AGEX_IR << 26) >> 26); break;
+		case 2: ADDR2MUX_OUT = Low16Bits((PS.AGEX_IR << 23) >> 23); break;
+		case 3: ADDR2MUX_OUT = Low16Bits((PS.AGEX_IR << 21) >> 21); break;
+	}
 
-  if (LD_MEM) {
-    /* Your code for latching into MEM latches goes here */
-    
+	int ADDER_OUT = (ADDR2MUX_OUT << Get_LSHF1(PS.AGEX_CS)) + ADDR1MUX_OUT;
 
+	int ADDRESSMUX_OUT = (Get_ADDRESSMUX(PS.AGEX_CS)) ? ADDER_OUT : ((PS.AGEX_IR & 0x00FF) << GetLSHF1(PS.AGEX_CS));
 
-    /* The code below propagates the control signals from AGEX.CS latch
-       to MEM.CS latch. */
-    for (ii = COPY_MEM_CS_START; ii < NUM_AGEX_CS_BITS; ii++) {
-      NEW_PS.MEM_CS [jj++] = PS.AGEX_CS [ii]; 
-    }
-  }
+	/**************ALU_RESULT**********************************/
+	int SHF_OUT;
+	switch ((PS.AGEX_IR & 0x30) >> 4){
+		case 0: SHF_OUT = Low16bits(PS.AGEX_SR1 << (PS.AGEX_IR & 0x0F)); break;
+		case 1: SHF_OUT = PS.AGEX_SR1 >> (PS.AGEX_IR & 0x0F); break;
+		case 3: SHF_OUT = Low16bits(((PS.AGEX_SR1 << 16) >> 16) >> (PS.AGEX_IR & 0x0F)); break;
+	}
+
+	int SR2MUX_OUT = (PS.AGEX_IR & 0x20) ? (((0x001F & PS.AGEX_IR) << 27) >> 27) : PS.AGEX_SR2;
+
+	int ALU_OUT;
+	switch (GetALUK(PS.AGEX_CS)) {
+		case 0: ALU_OUT = PS.AGEX_SR1 + SR2MUX_OUT; break;
+		case 1: ALU_OUT = PS.AGEX_SR1 & SR2MUX_OUT; break;
+		case 2: ALU_OUT = PS.AGEX_SR1 ^ SR2MUX_OUT; break;
+		case 3: ALU_OUT = PS.AGEX_SR1; /*SR_SIGNAL = 1;*/  break;
+	}
+
+	int ALU_RESULT = Get_ALU_RESULTMUX(PS.AGEX_CS) ? ALU_OUT : SHF_OUT;
+	
+	/**************FUTURES************************************/
+	if (PS.AGEX_V){
+		V_AGEX_LD_CC = Get_AGEX_LD_CC(PS.AGEX_CS);
+		V_AGEX_LD_REG = Get_AGEX_LD_REG(PS.AGEX_CS);
+		V_AGEX_BR_STALL = Get_AGEX_BR_STALL(PS.AGEX_CS);
+	}
+
+	LD_MEM = mem_stall;
+
+	if (LD_MEM) {
+		/* Your code for latching into MEM latches goes here */
+		
+		NEW_PS.MEM_ADDRESS = ADDRESSMUX_OUT;
+		NEW_PS.MEM_NPC = PS.AGEX_NPC;
+		NEW_PS.MEM_CC = PS.AGEX_CC;
+		NEW_PS.MEM_ALU_RESULT = ALU_RESULT;
+		NEW_PS.MEM_IR = PS.AGEX_IR;
+		NEW_PS.MEM_DRID = PS.AGEX_DRID;
+		NEW_PS.MEM_V = PS.AGEX_V;
+
+		/* The code below propagates the control signals from AGEX.CS latch
+		   to MEM.CS latch. */
+		for (ii = COPY_MEM_CS_START; ii < NUM_AGEX_CS_BITS; ii++) {
+			NEW_PS.MEM_CS [jj++] = PS.AGEX_CS [ii]; 
+		}
+	}
 }
 
 
