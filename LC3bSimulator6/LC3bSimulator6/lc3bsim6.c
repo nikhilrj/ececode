@@ -1201,7 +1201,7 @@ void FETCH_stage() {
 	
 	int NO_STALLS = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall) && !(v_mem_br_stall && (!MEM_PCMUX));
 
-	if (NO_STALLS && !(PS.DE_V || PS.AGEX_V || PS.MEM_V || PS.SR_V)){
+	if (NO_STALLS){
 		/*If LD.PC*/
 		switch (MEM_PCMUX)
 		{
@@ -1213,7 +1213,7 @@ void FETCH_stage() {
 
 	if (!dep_stall && !mem_stall){
 		/*If LD.DE*/
-		NEW_PS.DE_NPC = PC +2; /*check if this must be +2!*/
+		NEW_PS.DE_NPC = PC; /*check if this must be +2!*/
 		NEW_PS.DE_IR = read;
 		NEW_PS.DE_V = NO_STALLS;
 	}
