@@ -1159,11 +1159,14 @@ void DE_stage() {
 	/*dependency got written to, but we still might have another!*/
 	int dep_set = 0;
 	if (V_AGEX_LD_REG || V_MEM_LD_REG || v_sr_ld_reg){
-		dep_set = 1;
-		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
+		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID))){
 			dep_stall = 1;
-		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
-			dep_stall = 1; 
+			dep_set = 1;
+		}
+		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID))){
+			dep_stall = 1;
+			dep_set = 1;
+		}
 		/*one of the later states is going to write to a source*/
 	}
 	if (Get_DE_BR_OP(cmi) && (V_AGEX_LD_CC || V_MEM_LD_CC || v_sr_ld_cc)){
@@ -1226,7 +1229,7 @@ void FETCH_stage() {
 	}
 
 
-	if (LD_PC || v_mem_br_stall){
+	if (LD_PC || (v_mem_br_stall && (MEM_PCMUX != 0))){
 		/*If LD.PC*/
 		PC = TEMP_PC;
 	}
