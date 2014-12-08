@@ -995,6 +995,7 @@ void MEM_stage() {
 			MEM_PCMUX = 1;
 		}
 		else if (Get_TRAP_OP(PS.MEM_CS)){
+			if (PS.MEM_V)
 			MEM_PCMUX = 2;
 		}
 		else MEM_PCMUX = 0;
@@ -1054,9 +1055,10 @@ void AGEX_stage() {
 		case 3: ADDR2MUX_OUT = Low16bits((PS.AGEX_IR << 21) >> 21); break;
 	}
 
-	int ADDER_OUT = (ADDR2MUX_OUT << Get_LSHF1(PS.AGEX_CS)) + ADDR1MUX_OUT;
+	int ADDER_OUT = Low16bits((ADDR2MUX_OUT << Get_LSHF1(PS.AGEX_CS)) + ADDR1MUX_OUT);
 
 	int ADDRESSMUX_OUT = (Get_ADDRESSMUX(PS.AGEX_CS)) ? ADDER_OUT : ((PS.AGEX_IR & 0x00FF) << 1);
+	ADDRESSMUX_OUT = Low16bits(ADDRESSMUX_OUT);
 
 	/**************ALU_RESULT**********************************/
 	int SHF_OUT;
