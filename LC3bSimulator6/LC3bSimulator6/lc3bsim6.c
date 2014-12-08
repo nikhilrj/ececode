@@ -1074,7 +1074,7 @@ void AGEX_stage() {
 		case 0: ALU_OUT = PS.AGEX_SR1 + SR2MUX_OUT; break;
 		case 1: ALU_OUT = PS.AGEX_SR1 & SR2MUX_OUT; break;
 		case 2: ALU_OUT = PS.AGEX_SR1 ^ SR2MUX_OUT; break;
-		case 3: ALU_OUT = PS.AGEX_SR1; /*SR_SIGNAL = 1;*/  break;
+		case 3: ALU_OUT = SR2MUX_OUT; /*PS.AGEX_SR1; SR_SIGNAL = 1;*/  break;
 	}
 
 	int ALU_RESULT = Get_ALU_RESULTMUX(PS.AGEX_CS) ? ALU_OUT : SHF_OUT;
@@ -1131,7 +1131,7 @@ void DE_stage() {
 
 	/**************REGISTERS***********************************/
 	int SR1_IN = (PS.DE_IR & 0x01C0) >> 6;
-	int SR2_IN = (PS.DE_IR & 0x2000) ? (PS.DE_IR & 0xE000) >> 9 : PS.DE_IR & 0x0007;
+	int SR2_IN = (PS.DE_IR & 0x2000) ? (PS.DE_IR & 0x0E00) >> 9 : PS.DE_IR & 0x0007;
 
 	if (v_sr_ld_reg){
 		REGS[sr_reg_id] = sr_reg_data;
@@ -1147,16 +1147,7 @@ void DE_stage() {
 
 
 	/**************DEPENDENCY LOGIC****************************/
-	//if (v_sr_ld_reg && ((SR1_IN == PS.SR_DRID) || (SR2_IN == PS.SR_DRID))){
-	//	/*the dependent value just got loaded!*/
-	//	dep_stall = 0;
-	//}
-	//if (v_sr_ld_cc && Get_DE_BR_OP(cmi)){
-	//	/*we have loaded the CC*/
-	//	dep_stall = 0;
-	//}
 
-	/*dependency got written to, but we still might have another!*/
 	int dep_set = 0;
 	if (V_AGEX_LD_REG || V_MEM_LD_REG || v_sr_ld_reg){
 		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID))){
