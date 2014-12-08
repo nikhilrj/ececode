@@ -985,7 +985,7 @@ void MEM_stage() {
 	/**************BRANCH LOGIC*********************************/
 	if (1/*PS.MEM_V*/) {
 		if (Get_BR_OP(PS.MEM_CS)){
-			if (PS.MEM_CC & (PS.MEM_IR & 0x0E00) >> 9){
+			if (PS.MEM_CC & ((PS.MEM_IR & 0x0E00) >> 9)){
 				/*branch test passes*/
 				MEM_PCMUX = 1;
 			}
@@ -1157,7 +1157,9 @@ void DE_stage() {
 	//}
 
 	/*dependency got written to, but we still might have another!*/
+	int dep_set = 0;
 	if (V_AGEX_LD_REG || V_MEM_LD_REG || v_sr_ld_reg){
+		dep_set = 1;
 		if (Get_SR1_NEEDED(cmi) && ((SR1_IN == PS.AGEX_DRID) || (SR1_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
 			dep_stall = 1;
 		else if (Get_SR2_NEEDED(cmi) && ((SR2_IN == PS.AGEX_DRID) || (SR2_IN == PS.MEM_DRID) || (SR1_IN == PS.SR_DRID)))
@@ -1167,8 +1169,9 @@ void DE_stage() {
 	if (Get_DE_BR_OP(cmi) && (V_AGEX_LD_CC || V_MEM_LD_CC || v_sr_ld_cc)){
 		/*instruction in agex or mem is going to set CC, we wait for it*/
 		dep_stall = 1;
+		dep_set = 1;
 	}
-	else
+	if (!dep_set)
 		dep_stall = 0;
 
 	LD_AGEX = !mem_stall;
@@ -1202,7 +1205,7 @@ void FETCH_stage() {
 	icache_access(PC, &read, &icache_r);
 	
 	int LD_PC = !((!icache_r) || dep_stall || v_de_br_stall || v_agex_br_stall || mem_stall || v_mem_br_stall);
-
+	
 	int TEMP_PC = PC;
 	int TEMP_PC2 = PC + 2;
 
@@ -1212,6 +1215,8 @@ void FETCH_stage() {
 	case 1: TEMP_PC = TARGET_PC; break;
 	case 2: TEMP_PC = TRAP_PC; break;
 	}
+
+
 
 	if (!dep_stall && !mem_stall){
 		/*If LD.DE*/
