@@ -29,7 +29,7 @@ public class ArrayListObjectDemo {
 	
 	public static void main(String [] args){
 		Animal a1 = new Animal();   Animal a2 = new Platypus();
-		Platypus p1 = new Animal();
+		//Platypus p1 = new Animal();
 	    Mammal m1 = new Platypus();    System.out.print( a1.bt() );    System.out.print( a2.bt() );
 	    System.out.print( m1.bt() );
 
